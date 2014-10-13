@@ -1,5 +1,5 @@
 #include "ProjHelperFun.h"
-#include "ProjCoreOrig.h"
+#include "ProjCoreOMP.h"
 #include "Constants.h"
 
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)
@@ -171,7 +171,7 @@ REAL   value(   PrivGlobs    globs,
     return globs.myResult[globs.myXindex][globs.myYindex];
 }
 
-void   run_OrigCPU(
+void   run_OMPCPU(
                 const unsigned int&   outer,
                 const unsigned int&   numX,
                 const unsigned int&   numY,

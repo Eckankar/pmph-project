@@ -16,7 +16,7 @@ struct PrivGlobs {
     vector<REAL>        myX;        // [numX]
     vector<REAL>        myY;        // [numY]
     vector<REAL>        myTimeline; // [numT]
-    unsigned            myXindex;  
+    unsigned            myXindex;
     unsigned            myYindex;
 
     //	variable
@@ -64,54 +64,5 @@ struct PrivGlobs {
     }
 } __attribute__ ((aligned (128)));
 
-
-void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t, 
-                const unsigned numX, const unsigned numY, const unsigned numT, PrivGlobs& globs   
-            );
-
-void initOperator(  const vector<REAL>& x, 
-                    vector<vector<REAL> >& Dxx
-                 );
-
-void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs);
-
-void setPayoff(const REAL strike, PrivGlobs& globs );
-
-void tridag(
-    const vector<REAL>&   a,   // size [n]
-    const vector<REAL>&   b,   // size [n]
-    const vector<REAL>&   c,   // size [n]
-    const vector<REAL>&   r,   // size [n]
-    const int             n,
-          vector<REAL>&   u,   // size [n]
-          vector<REAL>&   uu   // size [n] temporary
-);
-
-void rollback( const unsigned g, PrivGlobs& globs );
-
-REAL   value(   PrivGlobs    globs,
-                const REAL s0,
-                const REAL strike, 
-                const REAL t, 
-                const REAL alpha, 
-                const REAL nu, 
-                const REAL beta,
-                const unsigned int numX,
-                const unsigned int numY,
-                const unsigned int numT
-            );
-
-void run_OrigCPU(  
-                const unsigned int&   outer,
-                const unsigned int&   numX,
-                const unsigned int&   numY,
-                const unsigned int&   numT,
-                const REAL&           s0,
-                const REAL&           t, 
-                const REAL&           alpha, 
-                const REAL&           nu, 
-                const REAL&           beta,
-                      REAL*           res   // [outer] RESULT
-            );
 
 #endif // PROJ_HELPER_FUNS
