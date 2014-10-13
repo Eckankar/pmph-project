@@ -1,0 +1,10 @@
+ProjCoreOrig.cpp:
+    run_OrigCPU: privatization
+    value: not parallelizable
+    updateParams: already
+    rollback:
+        1: already
+        2: already
+        3: inner already, outer by privatization
+        4: inner already, outer by privatization
+    tridag: change of algorithm
