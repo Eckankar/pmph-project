@@ -5,12 +5,12 @@ void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REA
 {
     for(unsigned i=0;i<globs.myX.size();++i)
         for(unsigned j=0;j<globs.myY.size();++j) {
-            globs.myVarX[i][j] = exp(2.0*(  beta*log(globs.myX[i])   
-                                          + globs.myY[j]             
+            globs.myVarX[i][j] = exp(2.0*(  beta*log(globs.myX[i])
+                                          + globs.myY[j]
                                           - 0.5*nu*nu*globs.myTimeline[g] )
                                     );
-            globs.myVarY[i][j] = exp(2.0*(  alpha*log(globs.myX[i])   
-                                          + globs.myY[j]             
+            globs.myVarY[i][j] = exp(2.0*(  alpha*log(globs.myX[i])
+                                          + globs.myY[j]
                                           - 0.5*nu*nu*globs.myTimeline[g] )
                                     ); // nu*nu
         }
@@ -77,7 +77,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
 
     vector<vector<REAL> > u(numY, vector<REAL>(numX));   // [numY][numX]
     vector<vector<REAL> > v(numX, vector<REAL>(numY));   // [numX][numY]
-    vector<REAL> a(numZ), b(numZ), c(numZ), y(numZ);     // [max(numX,numY)] 
+    vector<REAL> a(numZ), b(numZ), c(numZ), y(numZ);     // [max(numX,numY)]
     vector<REAL> yy(numZ);  // temporary used in tridag  // [max(numX,numY)]
 
     //    explicit x
@@ -85,8 +85,8 @@ rollback( const unsigned g, PrivGlobs& globs ) {
         for(j=0;j<numY;j++) {
             u[j][i] = dtInv*globs.myResult[i][j];
 
-            if(i > 0) { 
-              u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][0] ) 
+            if(i > 0) {
+              u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][0] )
                             * globs.myResult[i-1][j];
             }
             u[j][i]  +=  0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][1] )
@@ -114,7 +114,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
               v[i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][2] )
                          *  globs.myResult[i][j+1];
             }
-            u[j][i] += v[i][j]; 
+            u[j][i] += v[i][j];
         }
     }
 
@@ -130,7 +130,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     }
 
     //    implicit y
-    for(i=0;i<numX;i++) { 
+    for(i=0;i<numX;i++) {
         for(j=0;j<numY;j++) {  // here a, b, c should have size [numY]
             a[j] =         - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][0]);
             b[j] = dtInv - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][1]);
@@ -147,10 +147,10 @@ rollback( const unsigned g, PrivGlobs& globs ) {
 
 REAL   value(   PrivGlobs    globs,
                 const REAL s0,
-                const REAL strike, 
-                const REAL t, 
-                const REAL alpha, 
-                const REAL nu, 
+                const REAL strike,
+                const REAL t,
+                const REAL alpha,
+                const REAL nu,
                 const REAL beta,
                 const unsigned int numX,
                 const unsigned int numY,
@@ -170,15 +170,15 @@ REAL   value(   PrivGlobs    globs,
     return globs.myResult[globs.myXindex][globs.myYindex];
 }
 
-void   run_OrigCPU(  
+void   run_OrigCPU(
                 const unsigned int&   outer,
                 const unsigned int&   numX,
                 const unsigned int&   numY,
                 const unsigned int&   numT,
                 const REAL&           s0,
-                const REAL&           t, 
-                const REAL&           alpha, 
-                const REAL&           nu, 
+                const REAL&           t,
+                const REAL&           alpha,
+                const REAL&           nu,
                 const REAL&           beta,
                       REAL*           res   // [outer] RESULT
 ) {

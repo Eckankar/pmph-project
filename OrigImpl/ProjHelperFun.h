@@ -12,21 +12,21 @@ using namespace std;
 
 struct PrivGlobs {
 
-    //	grid
+    //  grid
     vector<REAL>        myX;        // [numX]
     vector<REAL>        myY;        // [numY]
     vector<REAL>        myTimeline; // [numT]
     unsigned            myXindex;  
     unsigned            myYindex;
 
-    //	variable
+    //  variable
     vector<vector<REAL> > myResult; // [numX][numY]
 
-    //	coeffs
+    //  coeffs
     vector<vector<REAL> >   myVarX; // [numX][numY]
     vector<vector<REAL> >   myVarY; // [numX][numY]
 
-    //	operators
+    //  operators
     vector<vector<REAL> >   myDxx;  // [numX][4]
     vector<vector<REAL> >   myDyy;  // [numY][4]
 
