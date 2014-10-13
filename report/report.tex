@@ -22,6 +22,7 @@
 \maketitle
 
 \section{Loop accesses}
+\label{sec:loop}
 
 \subsection{\texttt{run\_OrigCPU}}
 
@@ -50,5 +51,12 @@ Contains four outer loops:
 \subsection{\texttt{tridag}}
 
 This can be parallelized by changing the algorithm to the one mentioned in the lectures.
+
+
+\section{OpenMP implementation}
+
+This is done by privatizing the loop in \texttt{run\_OrigCPU} as described in \autoref{sec:loop}. Doing this we can just add \begin{verbatim}
+#pragma omp parallel for default(shared) schedule(static) if(outer>4)
+\end{verbatim} to the outer loop as suggested.
 
 \end{document}
