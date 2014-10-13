@@ -145,29 +145,37 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     }
 }
 
-REAL   value(   PrivGlobs    globs,
-                const REAL s0,
-                const REAL strike,
-                const REAL t,
-                const REAL alpha,
-                const REAL nu,
-                const REAL beta,
-                const unsigned int numX,
-                const unsigned int numY,
-                const unsigned int numT
+void   run_cuda_old(
+                const unsigned int&   outer,
+                const unsigned int&   numX,
+                const unsigned int&   numY,
+                const unsigned int&   numT,
+                const REAL&           s0,
+                const REAL&           t,
+                const REAL&           alpha,
+                const REAL&           nu,
+                const REAL&           beta,
+                      REAL*           res   // [outer] RESULT
 ) {
-    initGrid(s0,alpha,nu,t, numX, numY, numT, globs);
-    initOperator(globs.myX,globs.myDxx);
-    initOperator(globs.myY,globs.myDyy);
+    for( unsigned i = 0; i < outer; ++ i ) {
+        REAL strike;
+        PrivGlobs    globs(numX, numY, numT);
 
-    setPayoff(strike, globs);
-    for(int i = globs.myTimeline.size()-2;i>=0;--i)
-    {
-        updateParams(i,alpha,beta,nu,globs);
-        rollback(i, globs);
+        strike = 0.001*i;
+
+        initGrid(s0,alpha,nu,t, numX, numY, numT, globs);
+        initOperator(globs.myX,globs.myDxx);
+        initOperator(globs.myY,globs.myDyy);
+
+        setPayoff(strike, globs);
+
+        for(int j = numT-2; j>=0; --j) {
+            updateParams(j,alpha,beta,nu,globs);
+            rollback(j, globs);
+        }
+
+        res[i] = globs.myResult[globs.myXindex][globs.myYindex];
     }
-
-    return globs.myResult[globs.myXindex][globs.myYindex];
 }
 
 void   run_cuda(
@@ -182,14 +190,28 @@ void   run_cuda(
                 const REAL&           beta,
                       REAL*           res   // [outer] RESULT
 ) {
-    REAL strike;
-    PrivGlobs    globs(numX, numY, numT);
+    vector<PrivGlobs> globs(outer, PrivGlobs(numX, numY, numT));
+    for (unsigned i = 0; i < outer; ++ i) {
+        initGrid(s0,alpha,nu,t, numX, numY, numT, globs[i]);
 
-    for( unsigned i = 0; i < outer; ++ i ) {
+        initOperator(globs[i].myX,globs[i].myDxx);
+        initOperator(globs[i].myY,globs[i].myDyy);
+
+        REAL strike;
         strike = 0.001*i;
-        res[i] = value( globs, s0, strike, t,
-                        alpha, nu,    beta,
-                        numX,  numY,  numT );
+
+        setPayoff(strike, globs[i]);
+    }
+
+    for (int j = numT-2; j>=0; --j) {
+        for (unsigned i = 0; i < outer; ++ i ) {
+            updateParams(j, alpha, beta, nu, globs[i]);
+            rollback(j, globs[i]);
+        }
+    }
+
+    for (unsigned i = 0; i < outer; ++ i) {
+        res[i] = globs[i].myResult[globs[i].myXindex][globs[i].myYindex];
     }
 }
 
