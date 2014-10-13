@@ -1,4 +1,5 @@
 #include "ProjHelperFun.h"
+#include "ProjCoreCUDACores.cu.h"
 #include "Constants.h"
 
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)

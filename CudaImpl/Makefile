@@ -1,23 +1,23 @@
-CXX        = g++
-LIB        = -L$(OPENCL_LIBDIR) -lOpenCL
-CXXFLAGS   = -fopenmp -O3 -DWITH_FLOATS=0
+CXX        = nvcc
+LIB        =
+CXXFLAGS   = -O3 -arch=sm_20 -DWITH_FLOATS=1
 
 INCLUDES    += -I ../include
 GPU_OPTS   = -D lgWARP=5
 
 SOURCES_CPP =ProjectMain.cpp ProjHelperFun.cpp ProjCoreCUDA.cpp 
-HELPERS     =ProhHelperFun.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h ../include/OpenmpUtil.h
+HELPERS     =ProhHelperFun.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h ../include/CudaUtilProj.cu.h ProjCoreCUDACores.cu.h
 OBJECTS     =ProjectMain.o ProjHelperFun.o  ProjCoreCUDA.o
 EXECUTABLE  =runproject
 
 
-default: cpu
+default: gpu
 
 .cpp.o: $(SOURCES_CPP) $(HELPERS)
 	$(CXX) $(CXXFLAGS) $(GPU_OPTS) $(INCLUDES) -c -o $@ $<
 
 
-cpu: $(EXECUTABLE)
+gpu: $(EXECUTABLE)
 $(EXECUTABLE): $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(EXECUTABLE) $(OBJECTS)
 
