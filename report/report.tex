@@ -15,11 +15,40 @@
 \newcommand{\subtableautorefname}{\tableautorefname}
 \usepackage[margin=10pt,font=footnotesize,labelfont=bf]{caption}
 
-\title{PMPH Project}
+\title{Programming Massively Parallel Hardware \\ Group Project}
 \author{Sebastian Paaske Tørholm \and Daniel Egeberg}
 
 \begin{document}
 \maketitle
 
+\section{Loop accesses}
+
+\subsection{\texttt{run\_OrigCPU}}
+
+Contains a single loop that can be parallelized by privatizing \texttt{strike} and \texttt{globs}.
+
+\subsection{\texttt{value}}
+
+The loop in this function is not parallelizable. It loops over time steps, and
+calls \texttt{rollback}, which uses results from previous time steps. This is
+sequential in nature.
+
+\subsection{\texttt{updateParams}}
+
+Already parallelizable as each iteration step is independent.
+
+\subsection{\texttt{rollback}}
+
+Contains four outer loops:
+\begin{enumerate}
+    \item Already parallelizable as it writes to \texttt{u[j][i]} without reading from \texttt{u}.
+    \item Already parallelizable as it writes to \texttt{v[i][j]} and \texttt{u[j][i]} without reading from \texttt{v} or \texttt{u} for different indices.
+    \item The inner loop is already parallelizable as it writes to separate indices of \texttt{a}, \texttt{b} and \texttt{c}. The outer loop cannot be parallelized as it calls \texttt{tridag}, which rewrites \texttt{u} based on previous iterations.
+    \item The inner loop is already parallelizable as it writes to separate indices of \texttt{a}, \texttt{b}, \texttt{c} and \texttt{y}. The outer loop can, unlike the previous loop, be parallelized by privatizing the aforementioned variables. This is possible because we write to \texttt{myResult} based on \texttt{y} (which is local).
+\end{enumerate}
+
+\subsection{\texttt{tridag}}
+
+This can be parallelized by changing the algorithm to the one mentioned in the lectures.
 
 \end{document}
