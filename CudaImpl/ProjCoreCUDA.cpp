@@ -145,39 +145,6 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     }
 }
 
-void   run_cuda_old(
-                const unsigned int&   outer,
-                const unsigned int&   numX,
-                const unsigned int&   numY,
-                const unsigned int&   numT,
-                const REAL&           s0,
-                const REAL&           t,
-                const REAL&           alpha,
-                const REAL&           nu,
-                const REAL&           beta,
-                      REAL*           res   // [outer] RESULT
-) {
-    for( unsigned i = 0; i < outer; ++ i ) {
-        REAL strike;
-        PrivGlobs    globs(numX, numY, numT);
-
-        strike = 0.001*i;
-
-        initGrid(s0,alpha,nu,t, numX, numY, numT, globs);
-        initOperator(globs.myX,globs.myDxx);
-        initOperator(globs.myY,globs.myDyy);
-
-        setPayoff(strike, globs);
-
-        for(int j = numT-2; j>=0; --j) {
-            updateParams(j,alpha,beta,nu,globs);
-            rollback(j, globs);
-        }
-
-        res[i] = globs.myResult[globs.myXindex][globs.myYindex];
-    }
-}
-
 void   run_cuda(
                 const unsigned int&   outer,
                 const unsigned int&   numX,
