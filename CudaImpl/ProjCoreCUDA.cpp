@@ -27,6 +27,27 @@ void setPayoff(const REAL strike, PrivGlobs& globs )
     }
 }
 
+inline void new_amazing_tridag(
+    const vector<REAL>&   a,   // size [n]
+    const vector<REAL>&   b,   // size [n]
+    const vector<REAL>&   c,   // size [n]
+    const vector<REAL>&   r,   // size [n]
+    const int             n,
+          vector<REAL>&   u,   // size [n]
+          vector<REAL>&   uu   // size [n] temporary
+) {
+    unsigned int block_size = 128;
+
+    // generate S_i matrices
+    // TODO
+
+    // compute S_i * S_(i-1) * S_1 matrices
+    scanInc<Mat2Mult, matrix>(block_size, n, d_s, d_tmpmat);
+
+
+}
+
+
 inline void tridag(
     const vector<REAL>&   a,   // size [n]
     const vector<REAL>&   b,   // size [n]
