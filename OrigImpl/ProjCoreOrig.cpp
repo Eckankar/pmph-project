@@ -18,12 +18,12 @@ void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REA
 
 void setPayoff(const REAL strike, PrivGlobs& globs )
 {
-	for(unsigned i=0;i<globs.myX.size();++i)
-	{
-		REAL payoff = max(globs.myX[i]-strike, (REAL)0.0);
-		for(unsigned j=0;j<globs.myY.size();++j)
-			globs.myResult[i][j] = payoff;
-	}
+    for(unsigned i=0;i<globs.myX.size();++i)
+    {
+        REAL payoff = max(globs.myX[i]-strike, (REAL)0.0);
+        for(unsigned j=0;j<globs.myY.size();++j)
+            globs.myResult[i][j] = payoff;
+    }
 }
 
 inline void tridag(
@@ -80,7 +80,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     vector<REAL> a(numZ), b(numZ), c(numZ), y(numZ);     // [max(numX,numY)] 
     vector<REAL> yy(numZ);  // temporary used in tridag  // [max(numX,numY)]
 
-    //	explicit x
+    //    explicit x
     for(i=0;i<numX;i++) {
         for(j=0;j<numY;j++) {
             u[j][i] = dtInv*globs.myResult[i][j];
@@ -98,7 +98,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
         }
     }
 
-    //	explicit y
+    //    explicit y
     for(j=0;j<numY;j++)
     {
         for(i=0;i<numX;i++) {
@@ -118,23 +118,23 @@ rollback( const unsigned g, PrivGlobs& globs ) {
         }
     }
 
-    //	implicit x
+    //    implicit x
     for(j=0;j<numY;j++) {
         for(i=0;i<numX;i++) {  // here a, b,c should have size [numX]
-            a[i] =		 - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][0]);
+            a[i] =         - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][0]);
             b[i] = dtInv - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][1]);
-            c[i] =		 - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][2]);
+            c[i] =         - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][2]);
         }
         // here yy should have size [numX]
         tridag(a,b,c,u[j],numX,u[j],yy);
     }
 
-    //	implicit y
+    //    implicit y
     for(i=0;i<numX;i++) { 
         for(j=0;j<numY;j++) {  // here a, b, c should have size [numY]
-            a[j] =		 - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][0]);
+            a[j] =         - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][0]);
             b[j] = dtInv - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][1]);
-            c[j] =		 - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][2]);
+            c[j] =         - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][2]);
         }
 
         for(j=0;j<numY;j++)
@@ -155,7 +155,7 @@ REAL   value(   PrivGlobs    globs,
                 const unsigned int numX,
                 const unsigned int numY,
                 const unsigned int numT
-) {	
+) {
     initGrid(s0,alpha,nu,t, numX, numY, numT, globs);
     initOperator(globs.myX,globs.myDxx);
     initOperator(globs.myY,globs.myDyy);
