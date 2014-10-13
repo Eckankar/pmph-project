@@ -1,2 +1,10 @@
 *.o
 */runproject
+*/Debug.txt
+*.log
+*.aux
+*.make
+*.d
+*.fls
+*.out
+report/report.pdf
