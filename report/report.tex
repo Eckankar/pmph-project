@@ -59,4 +59,18 @@ This is done by privatizing the loop in \texttt{run\_OrigCPU} as described in \a
 #pragma omp parallel for default(shared) schedule(static) if(outer>4)
 \end{verbatim} to the outer loop as suggested.
 
+
+\section{CUDA implementation}
+
+\subsection{Moving out the time loop}
+
+As we observed in \autoref{sec:loop}, the time loop is sequential, so we want
+this as our outermost loop. We start by inlining the \texttt{value} function in
+the run function. This enables us to perform this rewrite. From this, we can
+observe that \texttt{updateParams} and \texttt{rollback} are the only
+operations that depend on the time step. Thus, we can factor out all other
+operations in a parallelizable loop by maintaining a separate \texttt{globs}
+struct per ``\texttt{outer}''.
+
+
 \end{document}
