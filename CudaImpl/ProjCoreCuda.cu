@@ -47,46 +47,6 @@ inline void new_amazing_tridag(
 
 }
 
-
-__global__
-inline void tridag(
-    const REAL   *a,   // size [n]
-    const REAL   *b,   // size [n]
-    const REAL   *c,   // size [n]
-    const REAL   *r,   // size [n]
-    const int             n,
-          REAL   *u,   // size [n]
-          REAL   *uu   // size [n] temporary
-) {
-    int    i, offset;
-    REAL   beta;
-
-    u[0]  = r[0];
-    uu[0] = b[0];
-
-    for(i=1; i<n; i++) {
-        beta  = a[i] / uu[i-1];
-
-        uu[i] = b[i] - beta*c[i-1];
-        u[i]  = r[i] - beta*u[i-1];
-    }
-
-#if 1
-    // X) this is a backward recurrence
-    u[n-1] = u[n-1] / uu[n-1];
-    for(i=n-2; i>=0; i--) {
-        u[i] = (u[i] - c[i]*u[i+1]) / uu[i];
-    }
-#else
-    // Hint: X) can be written smth like (once you make a non-constant)
-    for(i=0; i<n; i++) a[i] =  u[n-1-i];
-    a[0] = a[0] / uu[n-1];
-    for(i=1; i<n; i++) a[i] = (a[i] - c[n-1-i]*a[i-1]) / uu[n-1-i];
-    for(i=0; i<n; i++) u[i] = a[n-1-i];
-#endif
-}
-
-
 void
 rollback( const unsigned g, PrivGlobs& globs ) {
     unsigned numX = globs.myX.size(),
@@ -223,11 +183,13 @@ void   run_cuda(
     cudaMalloc((void **) &myVarY_d,     sizeof(myVarY));
     cudaMalloc((void **) &res_d,        outer * sizeof(REAL));
 
+    int foo = 5, bar = 7, bla = 32;
+
     initGrid_kernel<<<foo, bar>>>(s0, logAlpha, dx, dy, myXindex, myYindex, t,
                                   numX, numY, numT, outer, myTimeline_d, myX_d, myY_d); // 1D
     initOperator_kernel<<<foo, bar>>>(myX_d, myDxx_d, outer, numX); // 1D
     initOperator_kernel<<<foo, bar>>>(myY_d, myDyy_d, outer, numY); // 1D
-    setPayoff_kernel<<<foo, bar>>>(myX_d, myY_d, maxX, maxY, outer); // 2D
+    setPayoff_kernel<<<foo, bar>>>(myX_d, myY_d, myResult_d, maxX, maxY, outer); // 2D
 
     // stuff
     REAL u[outer][numY][numX];
@@ -241,11 +203,11 @@ void   run_cuda(
         updateParams_large_kernel<<<bla, bla>>>(j, alpha, beta, nu, outer, numX, numY,
                                                 numT, myX_d, myY_d, myVarX_d, myVarY_d, myTimeline); // 2D
 
-        rollback_explicit_x_kernel<<<bla, bla>>>(outer, numX, numY, u_d, myTimeline_d,
+        rollback_explicit_x_kernel<<<bla, bla>>>(outer, numX, numY, numT, u_d, myTimeline_d,
                                                  myVarX_d, myDxx_d, myResult_d); // 2D
         rollback_explicit_y_kernel<<<bla, bla>>>(outer, numX, numY, u_d, v_d, myTimeline_d,
                                                  myVarX_d, myDxx_d, myResult_d); // 2D
-        rollback_implicit_x_kernel<<<bla, bla>>>(outer, numX, numY, myTimeline_d,
+        rollback_implicit_x_kernel<<<bla, bla>>>(outer, numX, numY, numT, myTimeline_d,
                                                  myVarX_d, myDxx_d, u_d); // 2D
         rollback_implicit_y_kernel<<<bla, bla>>>(outer, numX, numY, myTimeline_d,
                                                  myVarY_d, myDyy_d, myResult_d, u_d, v_d); // 2D

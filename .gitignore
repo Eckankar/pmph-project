@@ -8,3 +8,4 @@
 *.fls
 *.out
 report/report.pdf
+sync.sh

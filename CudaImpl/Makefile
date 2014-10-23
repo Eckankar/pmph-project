@@ -1,25 +1,23 @@
 CXX        = nvcc
 LIB        =
-CXXFLAGS   = -O3 -arch=sm_20 -DWITH_FLOATS=1
+CXXFLAGS   = -O3 -arch=sm_20 -DWITH_FLOATS=1 -I ../include -D lgWARP5
 
-INCLUDES    += -I ../include
-GPU_OPTS   = -D lgWARP=5
-
-SOURCES_CPP =ProjectMain.cpp ProjHelperFun.cpp ProjCoreCUDA.cpp 
-HELPERS     =ProhHelperFun.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h ../include/CudaUtilProj.cu.h ProjCoreCUDACores.cu.h
-OBJECTS     =ProjectMain.o ProjHelperFun.o  ProjCoreCUDA.o
-EXECUTABLE  =runproject
-
+SOURCES_CPP = ProjectMain.cu ProjHelperFun.cu ProjCoreCuda.cu 
+HELPERS     = ProjHelperFun.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h ../include/CudaUtilProj.cu.h ProjCoreCUDACores.cu.h
+OBJECTS     = ProjectMain.o ProjHelperFun.o  ProjCoreCuda.o
+EXECUTABLE  = runproject
 
 default: gpu
 
-.cpp.o: $(SOURCES_CPP) $(HELPERS)
-	$(CXX) $(CXXFLAGS) $(GPU_OPTS) $(INCLUDES) -c -o $@ $<
+.SUFFIXES: .cu .o .h .cu.h
+
+%.o: %.cu $(SOURCES_CPP) $(HELPERS)
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 
 gpu: $(EXECUTABLE)
 $(EXECUTABLE): $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(EXECUTABLE) $(OBJECTS)
+	$(CXX) $(CXXFLAGS) -o $(EXECUTABLE) $(OBJECTS)
 
 
 run_small: $(EXECUTABLE)
