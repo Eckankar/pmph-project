@@ -28,7 +28,8 @@ class Mat2Mult {
         }
 };
 
-inline void tridag(
+__device__
+void tridag(
     const REAL   *a,   // size [n]
     const REAL   *b,   // size [n]
     const REAL   *c,   // size [n]
@@ -295,11 +296,17 @@ void rollback_implicit_x_kernel(
         const unsigned outer,
         const unsigned numX,
         const unsigned numY,
+        const unsigned numZ,
         const unsigned numT,
         REAL *myTimeline,
         REAL *myVarX,
         REAL *myDxx,
-        REAL *u
+        REAL *u,
+        REAL *a,
+        REAL *b,
+        REAL *c,
+        REAL *d,
+        REAL *yy
 ) {
     unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
     unsigned int tid_y     = blockIdx.y*blockDim.y + threadIdx.y;
@@ -307,24 +314,23 @@ void rollback_implicit_x_kernel(
     if (tid_outer >= outer || tid_y >= numY)
         return;
 
+    REAL *myA  =  &a[IDX3(outer,numZ,numZ, tid_outer,tid_y,0)];
+    REAL *myB  =  &b[IDX3(outer,numZ,numZ, tid_outer,tid_y,0)];
+    REAL *myC  =  &c[IDX3(outer,numZ,numZ, tid_outer,tid_y,0)];
+    REAL *myYY = &yy[IDX3(outer,numZ,numZ, tid_outer,tid_y,0)];
+
     REAL dtInv = 1.0/(myTimeline[IDX2(outer,numT,tid_outer,tid_outer+1)]-myTimeline[IDX2(outer, numT, tid_outer, tid_outer)]);
 
-    unsigned int numZ = max(numX, numY);
+    for(int i=0; i < numX; i++) {  // here a, b,c should have size [numX]
+        REAL mymyVarX = myVarX[IDX3(outer,numX,numY, tid_outer,i,tid_y)];
 
-    REAL a[numZ], b[numZ], c[numZ];
-    REAL yy[numZ];
-
-    for(i=0; i < numX; i++) {  // here a, b,c should have size [numX]
-        REAL mymyVarX = myVarX[IDX3(outer,numX,numY, tid_outer,tid_y,j)];
-
-        a[i] =       - 0.5 * (0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,i,0)]);
-        b[i] = dtInv - 0.5 * (0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,i,1)]);
-        c[i] =       - 0.5 * (0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,i,2)]);
+        myA[i] =       - 0.5 * (0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,i,0)]);
+        myB[i] = dtInv - 0.5 * (0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,i,1)]);
+        myC[i] =       - 0.5 * (0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,i,2)]);
     }
 
     // here yy should have size [numX]
-    // TODO:
-    //tridag(a,b,c,u[j],numX,u[j],yy);
+    tridag(myA,myB,myC,&u[IDX3(outer,numZ,numX, tid_outer,tid_y,0)],numX,&u[IDX3(outer,numZ,numX, tid_outer,tid_y,0)],myYY);
 }
 
 __global__
@@ -332,12 +338,19 @@ void rollback_implicit_y_kernel(
         const unsigned outer,
         const unsigned numX,
         const unsigned numY,
+        const unsigned numZ,
+        const unsigned numT,
         REAL *myTimeline,
         REAL *myVarY,
         REAL *myDyy,
         REAL *myResult,
-        REAL *u_d,
-        REAL *v_d
+        REAL *u,
+        REAL *v,
+        REAL *a,
+        REAL *b,
+        REAL *c,
+        REAL *y,
+        REAL *yy
 ) {
     unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
     unsigned int tid_x     = blockIdx.y*blockDim.y + threadIdx.y;
@@ -345,29 +358,26 @@ void rollback_implicit_y_kernel(
     if (tid_outer >= outer || tid_x >= numX)
         return;
 
+    REAL *myA  =  &a[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
+    REAL *myB  =  &b[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
+    REAL *myC  =  &c[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
+    REAL *myY  =  &y[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
+    REAL *myYY = &yy[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
+
     REAL dtInv = 1.0/(myTimeline[IDX2(outer,numT,tid_outer,tid_outer+1)]-myTimeline[IDX2(outer, numT, tid_outer, tid_outer)]);
 
-    unsigned int numZ = max(numX, numY);
+    for(int j=0; j < numY; j++) {  // here a, b,c should have size [numX]
+        REAL mymyVarY = myVarY[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
 
-    REAL a[numZ], b[numZ], c[numZ], y[numZ];
-    REAL yy[numZ];
-
-    for(j=0; j < numY; j++) {  // here a, b,c should have size [numX]
-        REAL mymyVarX = myVarX[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
-
-        a[j] =       - 0.5 * (0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,j,0)]);
-        b[j] = dtInv - 0.5 * (0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,j,1)]);
-        c[j] =       - 0.5 * (0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,j,2)]);
-
-        for(j=0;j<numY;j++) {
-            y[j] = dtInv * u[IDX3(outer,numY,numX, tid_outer,j,tid_x)]
-                 - 0.5   * v[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
-        }
+        myA[j] =       - 0.5 * (0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,j,0)]);
+        myB[j] = dtInv - 0.5 * (0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,j,1)]);
+        myC[j] =       - 0.5 * (0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,j,2)]);
+        myY[j] = dtInv * u[IDX3(outer,numY,numX, tid_outer,j,tid_x)]
+               - 0.5   * v[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
     }
 
     // here yy should have size [numY]
-    // TODO:
-    //tridag(a,b,c,y,numY,myResult[IDX2(outer,numX,numY, tid_outer, tid_x, 0)],yy);
+    tridag(myA,myB,myC,myY,numY,&myResult[IDX3(outer,numZ,numY, tid_outer, tid_x, 0)],myYY);
 }
 
 #endif
