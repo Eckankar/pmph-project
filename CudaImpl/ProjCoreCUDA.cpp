@@ -238,6 +238,7 @@ void   run_cuda(
     }
 
     res_kernel<<<foo, bar>>>(res_d, myResult_d, outer, numX, numY, myXindex, myYindex);
+    cudaMemcpy(res, res_d, sizeof(REAL * outer), cudaMemcpyDeviceToHost);
 }
 
 //#endif // PROJ_CORE_ORIG
