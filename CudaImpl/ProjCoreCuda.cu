@@ -1,6 +1,7 @@
 #include "ProjHelperFun.h"
 #include "ProjCoreCUDACores.cu.h"
 #include "Constants.h"
+#include <math.h>
 
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)
 {
@@ -101,13 +102,17 @@ void   run_cuda(
     cudaMalloc((void **) &myVarY_d,     sizeof(myVarY));
     cudaMalloc((void **) &res_d,        outer * sizeof(REAL));
 
-    int foo = 5, bar = 7, bla = 32;
+    const dim3 block_size2 = dim3(32, 32);
+    const int block_size   = block_size2.x * block_size2.y * block_size2.z;
 
-    initGrid_kernel<<<foo, bar>>>(s0, logAlpha, dx, dy, myXindex, myYindex, t,
+    #define GRID(first,second) dim3(ceil((REAL)(first)/block_size2.x), ceil((REAL)(second)/block_size2.y))
+
+    initGrid_kernel<<<ceil((REAL)outer/block_size), block_size>>>(s0, logAlpha, dx, dy, myXindex, myYindex, t,
                                   numX, numY, numT, outer, myTimeline_d, myX_d, myY_d); // 1D
-    initOperator_kernel<<<foo, bar>>>(myX_d, myDxx_d, outer, numX); // 1D
-    initOperator_kernel<<<foo, bar>>>(myY_d, myDyy_d, outer, numY); // 1D
-    setPayoff_kernel<<<foo, bar>>>(myX_d, myY_d, myResult_d, numX, numY, outer); // 2D
+
+    initOperator_kernel<<<ceil((REAL)outer/block_size), block_size>>>(myX_d, myDxx_d, outer, numX); // 1D
+    initOperator_kernel<<<ceil((REAL)outer/block_size), block_size>>>(myY_d, myDyy_d, outer, numY); // 1D
+    setPayoff_kernel<<<GRID(outer, numX), block_size2>>>(myX_d, myY_d, myResult_d, numX, numY, outer); // 2D
 
     // stuff
     unsigned int numZ = max(numX, numY);
@@ -129,22 +134,22 @@ void   run_cuda(
     cudaMalloc((void **) &yy_d,    sizeof(yy));
 
     for (int j = numT-2; j>=0; --j) {
-        updateParams_large_kernel<<<bla, bla>>>(j, alpha, beta, nu, outer, numX, numY,
+        updateParams_large_kernel<<<GRID(outer, numX), block_size2>>>(j, alpha, beta, nu, outer, numX, numY,
                                                 numT, myX_d, myY_d, myVarX_d, myVarY_d, myTimeline_d); // 2D
 
-        rollback_explicit_x_kernel<<<bla, bla>>>(outer, numX, numY, numT, u_d, myTimeline_d,
+        rollback_explicit_x_kernel<<<GRID(outer, numX), block_size2>>>(outer, numX, numY, numT, u_d, myTimeline_d,
                                                  myVarX_d, myDxx_d, myResult_d); // 2D
-        rollback_explicit_y_kernel<<<bla, bla>>>(outer, numX, numY, u_d, v_d, myTimeline_d,
+        rollback_explicit_y_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, u_d, v_d, myTimeline_d,
                                                  myVarX_d, myDxx_d, myResult_d); // 2D
-        rollback_implicit_x_kernel<<<bla, bla>>>(outer, numX, numY, numZ, numT, myTimeline_d,
+        rollback_implicit_x_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, numZ, numT, myTimeline_d,
                                                  myVarX_d, myDxx_d, u_d, a_d, b_d, c_d, d_d,
                                                  yy_d); // 2D
-        rollback_implicit_y_kernel<<<bla, bla>>>(outer, numX, numY, numZ, numT, myTimeline_d,
+        rollback_implicit_y_kernel<<<GRID(outer, numX), block_size2>>>(outer, numX, numY, numZ, numT, myTimeline_d,
                                                  myVarY_d, myDyy_d, myResult_d, u_d, v_d, a_d,
                                                  b_d, c_d, y_d, yy_d); // 2D
     }
 
-    res_kernel<<<foo, bar>>>(res_d, myResult_d, outer, numX, numY, myXindex, myYindex);
+    res_kernel<<<ceil((REAL)outer/block_size), block_size>>>(res_d, myResult_d, outer, numX, numY, myXindex, myYindex);
     cudaMemcpy(res, res_d, outer * sizeof(REAL), cudaMemcpyDeviceToHost);
 
     // XXX: free everything maybe
