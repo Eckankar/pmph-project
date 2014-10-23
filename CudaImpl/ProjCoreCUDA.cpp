@@ -228,13 +228,26 @@ void   run_cuda(
     initOperator_kernel<<<foo, bar>>>(myY_d, myDyy_d, outer, numY); // 1D
     setPayoff_kernel<<<foo, bar>>>(myX_d, myY_d, maxX, maxY, outer); // 2D
 
+    // stuff
+    REAL u[outer][numY][numX];
+    REAL v[outer][numX][numY];
+
+    REAL *u_d, *v_d;
+    cudaMalloc((void **) &u_d,     sizeof(u));
+    cudaMalloc((void **) &v_d,     sizeof(v));
+
     for (int j = numT-2; j>=0; --j) {
         updateParams_large_kernel<<<bla, bla>>>(j, alpha, beta, nu, outer, numX, numY,
                                                 numT, myX_d, myY_d, myVarX_d, myVarY_d, myTimeline); // 2D
 
-        for (unsigned i = 0; i < outer; ++ i ) {
-            rollback(j, globs[i]);
-        }
+        rollback_explicit_x_kernel<<<bla, bla>>>(outer, numX, numY, u_d, myTimeline_d,
+                                                 myVarX_d, myDxx_d, myResult_d); // 2D
+        rollback_explicit_y_kernel<<<bla, bla>>>(outer, numX, numY, u_d, v_d, myTimeline_d,
+                                                 myVarX_d, myDxx_d, myResult_d); // 2D
+        rollback_implicit_x_kernel<<<bla, bla>>>(outer, numX, numY, myTimeline_d,
+                                                 myVarX_d, myDxx_d, u_d); // 2D
+        rollback_implicit_y_kernel<<<bla, bla>>>(outer, numX, numY, myTimeline_d,
+                                                 myVarY_d, myDyy_d, myResult_d, u_d, v_d); // 2D
     }
 
     res_kernel<<<foo, bar>>>(res_d, myResult_d, outer, numX, numY, myXindex, myYindex);

@@ -176,4 +176,158 @@ void res_kernel(
     res[tid_outer] = myResult[IDX3(outer, numX, numY, tid_outer, myXindex, myYindex)];
 }
 
+__global__
+void rollback_explicit_x_kernel(
+        const unsigned outer,
+        const unsigned numX,
+        const unsigned numY,
+        REAL *u,
+        REAL *myTimeline,
+        REAL *myVarX,
+        REAL *myDxx,
+        REAL *myResult
+) {
+    unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_x     = blockIdx.y*blockDim.y + threadIdx.y;
+
+    if (tid_outer >= outer || tid_x >= numX)
+        return;
+
+    REAL dtInv = 1.0/(myTimeline[IDX2(outer,numT,tid_outer,tid_outer+1)]-myTimeline[IDX2(outer, numT, tid_outer, tid_outer)]);
+
+    for(j=0; j < numY; j++) {
+        REAL *myu = &u[IDX3(outer,numY,numX, tid_outer,j,tid_x)];
+        REAL mymyVarX = myVarX[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
+
+        *myu = dtInv*myResult[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
+
+        if(i > 0) {
+            *myu += 0.5 * ( 0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,tid_x,0)] )
+                        * myResult[IDX3(outer,numX,numY, tid_outer,tid_x-1,j)];
+        }
+        *myu  +=  0.5 * ( 0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,tid_x,1)] )
+                        * myResult[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
+        if(tid_x < numX-1) {
+            *myu += 0.5 * ( 0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,tid_x,2)] )
+                        * myResult[IDX3(outer,numX,numY, tid_outer,tid_x+1,j)];
+        }
+    }
+}
+
+__global__
+void rollback_explicit_y_kernel(
+        const unsigned outer,
+        const unsigned numX,
+        const unsigned numY,
+        REAL *u,
+        REAL *v,
+        REAL *myTimeline,
+        REAL *myVarY,
+        REAL *myDyy,
+        REAL *myResult
+) {
+    unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_y     = blockIdx.y*blockDim.y + threadIdx.y;
+
+    if (tid_outer >= outer || tid_y >= numY)
+        return;
+
+    for(i=0; i < numX; i++) {
+        REAL *myv = &v[IDX3(outer,numY,numX, tid_outer,tid_y,i)];
+        REAL mymyVarY = myVarY[IDX3(outer,numX,numY, tid_outer,tid_y,i)];
+
+        *myv = 0.0f;
+
+        if(tid_y > 0) {
+            *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,tid_y,0)] )
+                        * myResult[IDX3(outer,numX,numY, tid_outer,i,tid_y-1)];
+        }
+        *myv  +=  0.5 * ( 0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,tid_y,1)] )
+                        * myResult[IDX3(outer,numX,numY, tid_outer,i,tid_y)];
+        if(tid_y < numY-1) {
+            *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,tid_y,2)] )
+                        * myResult[IDX3(outer,numX,numY, tid_outer,i,tid_y+1)];
+        }
+
+        u[IDX3(outer,numY,numX, tid_outer,i,tid_y)] += *myv;
+    }
+}
+
+__global__
+void rollback_implicit_x_kernel(
+        const unsigned outer,
+        const unsigned numX,
+        const unsigned numY,
+        REAL *myTimeline,
+        REAL *myVarX,
+        REAL *myDxx,
+        REAL *u
+) {
+    unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_y     = blockIdx.y*blockDim.y + threadIdx.y;
+
+    if (tid_outer >= outer || tid_y >= numY)
+        return;
+
+    REAL dtInv = 1.0/(myTimeline[IDX2(outer,numT,tid_outer,tid_outer+1)]-myTimeline[IDX2(outer, numT, tid_outer, tid_outer)]);
+
+    unsigned int numZ = max(numX, numY);
+
+    REAL a[numZ], b[numZ], c[numZ];
+    REAL yy[numZ];
+
+    for(i=0; i < numX; i++) {  // here a, b,c should have size [numX]
+        REAL mymyVarX = myVarX[IDX3(outer,numX,numY, tid_outer,tid_y,j)];
+
+        a[i] =       - 0.5 * (0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,i,0)]);
+        b[i] = dtInv - 0.5 * (0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,i,1)]);
+        c[i] =       - 0.5 * (0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,i,2)]);
+    }
+
+    // here yy should have size [numX]
+    // TODO:
+    //tridag(a,b,c,u[j],numX,u[j],yy);
+}
+
+__global__
+void rollback_implicit_y_kernel(
+        const unsigned outer,
+        const unsigned numX,
+        const unsigned numY,
+        REAL *myTimeline,
+        REAL *myVarY,
+        REAL *myDyy,
+        REAL *myResult
+) {
+    unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_x     = blockIdx.y*blockDim.y + threadIdx.y;
+
+    if (tid_outer >= outer || tid_x >= numX)
+        return;
+
+    REAL dtInv = 1.0/(myTimeline[IDX2(outer,numT,tid_outer,tid_outer+1)]-myTimeline[IDX2(outer, numT, tid_outer, tid_outer)]);
+
+    unsigned int numZ = max(numX, numY);
+
+    REAL a[numZ], b[numZ], c[numZ], y[numZ];
+    REAL yy[numZ];
+
+    for(j=0; j < numY; j++) {  // here a, b,c should have size [numX]
+        REAL mymyVarX = myVarX[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
+
+        a[j] =       - 0.5 * (0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,j,0)]);
+        b[j] = dtInv - 0.5 * (0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,j,1)]);
+        c[j] =       - 0.5 * (0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,j,2)]);
+
+        for(j=0;j<numY;j++) {
+            y[j] = dtInv * u[IDX3(outer,numY,numX, tid_outer,j,tid_x)]
+                 - 0.5   * v[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
+        }
+    }
+
+    // here yy should have size [numY]
+    // TODO:
+    //tridag(a,b,c,y,numY,myResult[IDX2(outer,numX,numY, tid_outer, tid_x, 0)],yy);
+}
+
 #endif
