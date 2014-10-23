@@ -48,14 +48,15 @@ inline void new_amazing_tridag(
 }
 
 
+__global__
 inline void tridag(
-    const vector<REAL>&   a,   // size [n]
-    const vector<REAL>&   b,   // size [n]
-    const vector<REAL>&   c,   // size [n]
-    const vector<REAL>&   r,   // size [n]
+    const REAL   *a,   // size [n]
+    const REAL   *b,   // size [n]
+    const REAL   *c,   // size [n]
+    const REAL   *r,   // size [n]
     const int             n,
-          vector<REAL>&   u,   // size [n]
-          vector<REAL>&   uu   // size [n] temporary
+          REAL   *u,   // size [n]
+          REAL   *uu   // size [n] temporary
 ) {
     int    i, offset;
     REAL   beta;
