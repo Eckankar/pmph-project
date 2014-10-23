@@ -220,7 +220,7 @@ void   run_cuda(
     cudaMalloc((void **) &myResult_d,   sizeof(myResult));
     cudaMalloc((void **) &myVarX_d,     sizeof(myVarX));
     cudaMalloc((void **) &myVarY_d,     sizeof(myVarY));
-    cudaMalloc((void **) &res_d,        sizeof(REAL * outer));
+    cudaMalloc((void **) &res_d,        outer * sizeof(REAL));
 
     initGrid_kernel<<<foo, bar>>>(s0, logAlpha, dx, dy, myXindex, myYindex, t,
                                   numX, numY, numT, outer, myTimeline_d, myX_d, myY_d); // 1D
@@ -238,7 +238,7 @@ void   run_cuda(
     }
 
     res_kernel<<<foo, bar>>>(res_d, myResult_d, outer, numX, numY, myXindex, myYindex);
-    cudaMemcpy(res, res_d, sizeof(REAL * outer), cudaMemcpyDeviceToHost);
+    cudaMemcpy(res, res_d, REAL * sizeof(REAL), cudaMemcpyDeviceToHost);
 }
 
 //#endif // PROJ_CORE_ORIG
