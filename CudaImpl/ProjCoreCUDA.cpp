@@ -183,29 +183,61 @@ void   run_cuda(
                 const REAL&           beta,
                       REAL*           res   // [outer] RESULT
 ) {
-    vector<PrivGlobs> globs(outer, PrivGlobs(numX, numY, numT));
-    for (unsigned i = 0; i < outer; ++ i) {
-        initGrid(s0,alpha,nu,t, numX, numY, numT, globs[i]);
+    // grid
+    REAL myX[outer][numX];
+    REAL myY[outer][numY];
+    REAL myTimeline[outer][numT];
+    unsigned int myXindex;
+    unsigned int myYindex;
 
-        initOperator(globs[i].myX,globs[i].myDxx);
-        initOperator(globs[i].myY,globs[i].myDyy);
+    // variable
+    REAL myResult[outer][numX][numY];
 
-        REAL strike;
-        strike = 0.001*i;
+    // coeffs
+    REAL myVarX[outer][numX][numY];
+    REAL myVarY[outer][numX][numY];
 
-        setPayoff(strike, globs[i]);
-    }
+    // operators
+    REAL myDxx[outer][numX][4];
+    REAL myYxx[outer][numY][4];
+
+    const REAL stdX = 20.0*alpha*s0*sqrt(t);
+    const REAL dx = stdX/numX;
+    myXindex = static_cast<unsigned>(s0/dx) % numX;
+
+    const REAL stdY = 10.0*nu*sqrt(t);
+    const REAL dy = stdY/numY;
+    const REAL logAlpha = log(alpha);
+    myYindex = static_cast<unsigned>(numY/2.0);
+
+    // Allocate CUDA resources
+    REAL *myX_d, *myY_d, *myTimeline_d, *myDxx_d, *myDyy_d, *myResult_d, *myVarX_d, *myVarY_d;
+    cudaMalloc((void **) &myX_d,        sizeof(myX));
+    cudaMalloc((void **) &myY_d,        sizeof(myY));
+    cudaMalloc((void **) &myTimeline_d, sizeof(myTimeline));
+    cudaMalloc((void **) &myDxx_d,      sizeof(myDxx));
+    cudaMalloc((void **) &myDyy_d,      sizeof(myDyy));
+    cudaMalloc((void **) &myResult_d,   sizeof(myResult));
+    cudaMalloc((void **) &myVarX_d,     sizeof(myVarX));
+    cudaMalloc((void **) &myVarY_d,     sizeof(myVarY));
+    cudaMalloc((void **) &res_d,        sizeof(REAL * outer));
+
+    initGrid_kernel<<<foo, bar>>>(s0, logAlpha, dx, dy, myXindex, myYindex, t,
+                                  numX, numY, numT, outer, myTimeline_d, myX_d, myY_d); // 1D
+    initOperator_kernel<<<foo, bar>>>(myX_d, myDxx_d, outer, numX); // 1D
+    initOperator_kernel<<<foo, bar>>>(myY_d, myDyy_d, outer, numY); // 1D
+    setPayoff_kernel<<<foo, bar>>>(myX_d, myY_d, maxX, maxY, outer); // 2D
 
     for (int j = numT-2; j>=0; --j) {
+        updateParams_large_kernel<<<bla, bla>>>(j, alpha, beta, nu, outer, numX, numY,
+                                                numT, myX_d, myY_d, myVarX_d, myVarY_d, myTimeline); // 2D
+
         for (unsigned i = 0; i < outer; ++ i ) {
-            updateParams(j, alpha, beta, nu, globs[i]);
             rollback(j, globs[i]);
         }
     }
 
-    for (unsigned i = 0; i < outer; ++ i) {
-        res[i] = globs[i].myResult[globs[i].myXindex][globs[i].myYindex];
-    }
+    res_kernel<<<foo, bar>>>(res_d, myResult_d, outer, numX, numY, myXindex, myYindex);
 }
 
 //#endif // PROJ_CORE_ORIG
