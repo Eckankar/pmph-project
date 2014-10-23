@@ -297,7 +297,9 @@ void rollback_implicit_y_kernel(
         REAL *myTimeline,
         REAL *myVarY,
         REAL *myDyy,
-        REAL *myResult
+        REAL *myResult,
+        REAL *u_d,
+        REAL *v_d
 ) {
     unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
     unsigned int tid_x     = blockIdx.y*blockDim.y + threadIdx.y;
