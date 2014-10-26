@@ -3,6 +3,50 @@
 #include "Constants.h"
 #include <math.h>
 
+// CUDA error checking macros; taken from http://choorucode.com/2011/03/02/how-to-do-error-checking-in-cuda/ 
+#define CUDA_ERROR_CHECK
+
+#define CudaSafeCall( err ) __cudaSafeCall( err, __FILE__, __LINE__ )
+#define CudaCheckError()    __cudaCheckError( __FILE__, __LINE__ )
+
+inline void __cudaSafeCall( cudaError err, const char *file, const int line )
+{
+#ifdef CUDA_ERROR_CHECK
+    if ( cudaSuccess != err )
+    {
+        fprintf( stderr, "cudaSafeCall() failed at %s:%i : %s\n",
+                 file, line, cudaGetErrorString( err ) );
+        exit( -1 );
+    }
+#endif
+
+    return;
+}
+
+inline void __cudaCheckError( const char *file, const int line )
+{
+#ifdef CUDA_ERROR_CHECK
+    cudaError err = cudaGetLastError();
+    if ( cudaSuccess != err )
+    {
+        fprintf( stderr, "cudaCheckError() failed at %s:%i : %s\n",
+                 file, line, cudaGetErrorString( err ) );
+        exit( -1 );
+    }
+
+    // More careful checking. However, this will affect performance.
+    // Comment away if needed.
+    err = cudaDeviceSynchronize();
+    if( cudaSuccess != err )
+    {
+        fprintf( stderr, "cudaCheckError() with sync failed at %s:%i : %s\n",
+                 file, line, cudaGetErrorString( err ) );
+        exit( -1 );
+    }
+#endif
+    return;
+}
+
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)
 {
     for(unsigned i=0;i<globs.myX.size();++i)
@@ -64,22 +108,22 @@ void   run_cuda(
                       REAL*           res   // [outer] RESULT
 ) {
     // grid
-    REAL myX[outer][numX];
-    REAL myY[outer][numY];
-    REAL myTimeline[outer][numT];
+    //REAL myX[outer][numX];
+    //REAL myY[outer][numY];
+    //REAL myTimeline[outer][numT];
     unsigned int myXindex;
     unsigned int myYindex;
 
     // variable
-    REAL myResult[outer][numX][numY];
+    //REAL myResult[outer][numX][numY];
 
     // coeffs
-    REAL myVarX[outer][numX][numY];
-    REAL myVarY[outer][numX][numY];
+    //REAL myVarX[outer][numX][numY];
+    //REAL myVarY[outer][numX][numY];
 
     // operators
-    REAL myDxx[outer][numX][4];
-    REAL myDyy[outer][numY][4];
+    //REAL myDxx[outer][numX][4];
+    //REAL myDyy[outer][numY][4];
 
     const REAL stdX = 20.0*alpha*s0*sqrt(t);
     const REAL dx = stdX/numX;
@@ -92,15 +136,15 @@ void   run_cuda(
 
     // Allocate CUDA resources
     REAL *myX_d, *myY_d, *myTimeline_d, *myDxx_d, *myDyy_d, *myResult_d, *myVarX_d, *myVarY_d, *res_d;
-    cudaMalloc((void **) &myX_d,        sizeof(myX));
-    cudaMalloc((void **) &myY_d,        sizeof(myY));
-    cudaMalloc((void **) &myTimeline_d, sizeof(myTimeline));
-    cudaMalloc((void **) &myDxx_d,      sizeof(myDxx));
-    cudaMalloc((void **) &myDyy_d,      sizeof(myDyy));
-    cudaMalloc((void **) &myResult_d,   sizeof(myResult));
-    cudaMalloc((void **) &myVarX_d,     sizeof(myVarX));
-    cudaMalloc((void **) &myVarY_d,     sizeof(myVarY));
-    cudaMalloc((void **) &res_d,        outer * sizeof(REAL));
+    CudaSafeCall( cudaMalloc((void **) &myX_d,        outer * numX * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myY_d,        outer * numY * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myTimeline_d, outer * numT * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myDxx_d,      outer * numX * 4 * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myDyy_d,      outer * numY * 4 * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myResult_d,   outer * numX * numY * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myVarX_d,     outer * numX * numY * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myVarY_d,     outer * numX * numY * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &res_d,        outer * sizeof(REAL)) );
 
     const dim3 block_size2 = dim3(32, 32);
     const int block_size   = block_size2.x * block_size2.y * block_size2.z;
@@ -109,10 +153,15 @@ void   run_cuda(
 
     initGrid_kernel<<<ceil((REAL)outer/block_size), block_size>>>(s0, logAlpha, dx, dy, myXindex, myYindex, t,
                                   numX, numY, numT, outer, myTimeline_d, myX_d, myY_d); // 1D
+    CudaCheckError();
 
     initOperator_kernel<<<ceil((REAL)outer/block_size), block_size>>>(myX_d, myDxx_d, outer, numX); // 1D
+    CudaCheckError();
     initOperator_kernel<<<ceil((REAL)outer/block_size), block_size>>>(myY_d, myDyy_d, outer, numY); // 1D
+    CudaCheckError();
+
     setPayoff_kernel<<<GRID(outer, numX), block_size2>>>(myX_d, myY_d, myResult_d, numX, numY, outer); // 2D
+    CudaCheckError();
 
     // stuff
     unsigned int numZ = max(numX, numY);
