@@ -1,9 +1,6 @@
 #include "ProjHelperFun.h"
 #include "Constants.h"
 
-bool debug = false;
-bool debug2 = false;
-
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)
 {
     for(unsigned i=0;i<globs.myX.size();++i)
@@ -68,13 +65,15 @@ inline void tridag(
 
 
 void
-rollback( const unsigned g, PrivGlobs& globs ) {
+rollback( const unsigned g, PrivGlobs& globs, const unsigned outerIt, const unsigned tIt ) {
     unsigned numX = globs.myX.size(),
              numY = globs.myY.size();
 
     unsigned numZ = max(numX,numY);
 
     unsigned i, j;
+
+    bool debug = outerIt==3 && tIt==globs.myTimeline.size()-2;
 
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
 
@@ -101,13 +100,6 @@ rollback( const unsigned g, PrivGlobs& globs ) {
         }
     }
 
-        if (debug && debug2) {
-            for (int i = 0; i < numX; i++) {
-                printf("%.3f ", globs.myVarY[4][i]);
-            }
-            printf("\n");
-        }
-
     //    explicit y
     for(j=0;j<numY;j++)
     {
@@ -126,6 +118,13 @@ rollback( const unsigned g, PrivGlobs& globs ) {
             }
             u[j][i] += v[i][j];
         }
+    }
+
+    if (debug) {
+        for (int i = 0; i < numX; i++) {
+            printf("%.3f ", v[4][i]);
+        }
+        printf("\n");
     }
 
     //    implicit x
@@ -164,25 +163,19 @@ REAL   value(   PrivGlobs    globs,
                 const REAL beta,
                 const unsigned int numX,
                 const unsigned int numY,
-                const unsigned int numT
+                const unsigned int numT,
+                const unsigned int outerIt
 ) {
     initGrid(s0,alpha,nu,t, numX, numY, numT, globs);
     initOperator(globs.myX,globs.myDxx);
-    if (debug) {
-        for (int i = 0; i < numX; i++) {
-                printf("%.3f ", globs.myDxx[i][0]);
-        }
-        printf("\n");
-    }
     initOperator(globs.myY,globs.myDyy);
 
     setPayoff(strike, globs);
 
     for(int i = globs.myTimeline.size()-2;i>=0;--i)
     {
-        debug2 = numT-2 == i;
         updateParams(i,alpha,beta,nu,globs);
-        rollback(i, globs);
+        rollback(i, globs, outerIt, t);
     }
 
     return globs.myResult[globs.myXindex][globs.myYindex];
@@ -205,12 +198,10 @@ void   run_OMPCPU(
         REAL strike;
         PrivGlobs    globs(numX, numY, numT);
 
-        debug = i == 3;
-
         strike = 0.001*i;
         res[i] = value( globs, s0, strike, t,
                         alpha, nu,    beta,
-                        numX,  numY,  numT );
+                        numX,  numY,  numT, i );
     }
 }
 
