@@ -1,8 +1,8 @@
 #ifndef PROJCORECUDACORES_CU_H_85E8271D
 #define PROJCORECUDACORES_CU_H_85E8271D
 
-#define IDX2(DIMX, DIMY, X, Y)           (X*DIMY + Y)
-#define IDX3(DIMX, DIMY, DIMZ, X, Y, Z)  (X*DIMY*DIMZ + Y*DIMZ + Z)
+#define IDX2(DIMX, DIMY, X, Y)           ((X)*(DIMY) + (Y))
+#define IDX3(DIMX, DIMY, DIMZ, X, Y, Z)  ((X)*(DIMY)*(DIMZ) + (Y)*(DIMZ) + (Z))
 
 #include "Constants.h"
 #include <cuda_runtime.h>
