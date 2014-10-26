@@ -90,7 +90,7 @@ void updateParams_large_kernel(
 
     for (unsigned j = 0; j < numY; ++j) {
         REAL x        = myX[IDX2(max_outer, numX, tid_outer, tid_x)],
-             y        = myX[IDX2(max_outer, numY, tid_outer, j)],
+             y        = myY[IDX2(max_outer, numY, tid_outer, j)],
              timeline = myTimeline[IDX2(max_outer, numT, tid_outer, g)];
 
         myVarX[IDX3(max_outer, numX, numY, tid_outer, tid_x, j)]
@@ -187,7 +187,7 @@ void setPayoff_kernel(REAL *myX, REAL *myY, REAL *myResult, const unsigned numX,
         return;
 
     REAL strike;
-    strike = 0.001*tid_x;
+    strike = 0.001*tid_outer;
 
     REAL payoff = max(myX[IDX2(outer, numX, tid_outer, tid_x)]-strike, (REAL)0.0);
     for (unsigned j=0; j < numY; ++j) {
@@ -219,6 +219,7 @@ void rollback_explicit_x_kernel(
         const unsigned numX,
         const unsigned numY,
         const unsigned numT,
+        const unsigned g,
         REAL *u,
         REAL *myTimeline,
         REAL *myVarX,
@@ -231,7 +232,7 @@ void rollback_explicit_x_kernel(
     if (tid_outer >= outer || tid_x >= numX)
         return;
 
-    REAL dtInv = 1.0/(myTimeline[IDX2(outer,numT,tid_outer,tid_outer+1)]-myTimeline[IDX2(outer, numT, tid_outer, tid_outer)]);
+    REAL dtInv = 1.0/(myTimeline[IDX2(outer,numT, tid_outer,g+1)] - myTimeline[IDX2(outer,numT, tid_outer,g)]);
 
     for(int j=0; j < numY; j++) {
         REAL *myu = &u[IDX3(outer,numY,numX, tid_outer,j,tid_x)];
@@ -274,7 +275,7 @@ void rollback_explicit_y_kernel(
         REAL *myv = &v[IDX3(outer,numY,numX, tid_outer,tid_y,i)];
         REAL mymyVarY = myVarY[IDX3(outer,numX,numY, tid_outer,tid_y,i)];
 
-        *myv = 0.0f;
+        *myv = 0.0;
 
         if(tid_y > 0) {
             *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX3(outer,numX,4, tid_outer,tid_y,0)] )

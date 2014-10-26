@@ -160,34 +160,52 @@ void   run_cuda(
     initOperator_kernel<<<ceil((REAL)outer/block_size), block_size>>>(myY_d, myDyy_d, outer, numY); // 1D
     CudaCheckError();
 
+    REAL *myDxx = (REAL *)malloc(outer * numX * 4 * sizeof(REAL));
+    cudaMemcpy(myDxx, myDxx_d, outer * numX * 4 * sizeof(REAL), cudaMemcpyDeviceToHost);
+    for (int i = 0; i < numX; i++) {
+            printf("%.3f ", myDxx[IDX3(outer,numX,4, 3,i,0)]);
+    }
+    printf("\n");
+
     setPayoff_kernel<<<GRID(outer, numX), block_size2>>>(myX_d, myY_d, myResult_d, numX, numY, outer); // 2D
     CudaCheckError();
 
     // stuff
     unsigned int numZ = max(numX, numY);
-    REAL u[outer][numY][numX];
-    REAL v[outer][numX][numY];
-    REAL a[outer][numZ][numZ];
-    REAL b[outer][numZ][numZ];
-    REAL c[outer][numZ][numZ];
-    REAL y[outer][numZ][numZ];
-    REAL yy[outer][numZ][numZ];
+    //REAL u[outer][numY][numX];
+    //REAL v[outer][numX][numY];
+    //REAL a[outer][numZ][numZ];
+    //REAL b[outer][numZ][numZ];
+    //REAL c[outer][numZ][numZ];
+    //REAL y[outer][numZ][numZ];
+    //REAL yy[outer][numZ][numZ];
 
     REAL *u_d, *v_d, *a_d, *b_d, *c_d, *d_d, *y_d, *yy_d;
-    cudaMalloc((void **) &u_d,     sizeof(u));
-    cudaMalloc((void **) &v_d,     sizeof(v));
-    cudaMalloc((void **) &a_d,     sizeof(a));
-    cudaMalloc((void **) &b_d,     sizeof(b));
-    cudaMalloc((void **) &c_d,     sizeof(c));
-    cudaMalloc((void **) &y_d,     sizeof(y));
-    cudaMalloc((void **) &yy_d,    sizeof(yy));
+    CudaSafeCall( cudaMalloc((void **) &u_d,     outer * numY * numX * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &v_d,     outer * numX * numY * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &a_d,     outer * numZ * numZ * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &b_d,     outer * numZ * numZ * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &c_d,     outer * numZ * numZ * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &y_d,     outer * numZ * numZ * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &yy_d,    outer * numZ * numZ * sizeof(REAL)) );
+
 
     for (int j = numT-2; j>=0; --j) {
         updateParams_large_kernel<<<GRID(outer, numX), block_size2>>>(j, alpha, beta, nu, outer, numX, numY,
                                                 numT, myX_d, myY_d, myVarX_d, myVarY_d, myTimeline_d); // 2D
 
-        rollback_explicit_x_kernel<<<GRID(outer, numX), block_size2>>>(outer, numX, numY, numT, u_d, myTimeline_d,
+        rollback_explicit_x_kernel<<<GRID(outer, numX), block_size2>>>(outer, numX, numY, numT, j, u_d, myTimeline_d,
                                                  myVarX_d, myDxx_d, myResult_d); // 2D
+
+        if (j == numT-2) {
+            REAL *u = (REAL *)malloc(outer * numY * numX * sizeof(REAL));
+            cudaMemcpy(u, u_d, outer * numY * numX * sizeof(REAL), cudaMemcpyDeviceToHost);
+            //for (int i = 0; i < numX; i++) {
+            //    printf("%.3f ", u[IDX3(outer,numY,numX, 3,4,i)]);
+            //}
+            //printf("\n");
+        }
+
         rollback_explicit_y_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, u_d, v_d, myTimeline_d,
                                                  myVarX_d, myDxx_d, myResult_d); // 2D
         rollback_implicit_x_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, numZ, numT, myTimeline_d,

@@ -1,6 +1,9 @@
 #include "ProjHelperFun.h"
 #include "Constants.h"
 
+bool debug = false;
+bool debug2 = false;
+
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)
 {
     for(unsigned i=0;i<globs.myX.size();++i)
@@ -98,6 +101,13 @@ rollback( const unsigned g, PrivGlobs& globs ) {
         }
     }
 
+        if (debug && debug2) {
+            for (int i = 0; i < numX; i++) {
+                printf("%.3f ", globs.myVarY[4][i]);
+            }
+            printf("\n");
+        }
+
     //    explicit y
     for(j=0;j<numY;j++)
     {
@@ -158,11 +168,19 @@ REAL   value(   PrivGlobs    globs,
 ) {
     initGrid(s0,alpha,nu,t, numX, numY, numT, globs);
     initOperator(globs.myX,globs.myDxx);
+    if (debug) {
+        for (int i = 0; i < numX; i++) {
+                printf("%.3f ", globs.myDxx[i][0]);
+        }
+        printf("\n");
+    }
     initOperator(globs.myY,globs.myDyy);
 
     setPayoff(strike, globs);
+
     for(int i = globs.myTimeline.size()-2;i>=0;--i)
     {
+        debug2 = numT-2 == i;
         updateParams(i,alpha,beta,nu,globs);
         rollback(i, globs);
     }
@@ -186,6 +204,8 @@ void   run_OMPCPU(
     for( unsigned i = 0; i < outer; ++ i ) {
         REAL strike;
         PrivGlobs    globs(numX, numY, numT);
+
+        debug = i == 3;
 
         strike = 0.001*i;
         res[i] = value( globs, s0, strike, t,
