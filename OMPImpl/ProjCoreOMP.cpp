@@ -65,15 +65,13 @@ inline void tridag(
 
 
 void
-rollback( const unsigned g, PrivGlobs& globs, const unsigned outerIt, const unsigned tIt ) {
+rollback( const unsigned g, PrivGlobs& globs ) {
     unsigned numX = globs.myX.size(),
              numY = globs.myY.size();
 
     unsigned numZ = max(numX,numY);
 
     unsigned i, j;
-
-    bool debug = outerIt==3 && tIt==globs.myTimeline.size()-2;
 
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
 
@@ -120,13 +118,6 @@ rollback( const unsigned g, PrivGlobs& globs, const unsigned outerIt, const unsi
         }
     }
 
-    if (debug) {
-        for (int i = 0; i < numX; i++) {
-            printf("%.3f ", v[4][i]);
-        }
-        printf("\n");
-    }
-
     //    implicit x
     for(j=0;j<numY;j++) {
         for(i=0;i<numX;i++) {  // here a, b,c should have size [numX]
@@ -163,19 +154,17 @@ REAL   value(   PrivGlobs    globs,
                 const REAL beta,
                 const unsigned int numX,
                 const unsigned int numY,
-                const unsigned int numT,
-                const unsigned int outerIt
+                const unsigned int numT
 ) {
     initGrid(s0,alpha,nu,t, numX, numY, numT, globs);
     initOperator(globs.myX,globs.myDxx);
     initOperator(globs.myY,globs.myDyy);
 
     setPayoff(strike, globs);
-
     for(int i = globs.myTimeline.size()-2;i>=0;--i)
     {
         updateParams(i,alpha,beta,nu,globs);
-        rollback(i, globs, outerIt, t);
+        rollback(i, globs);
     }
 
     return globs.myResult[globs.myXindex][globs.myYindex];
@@ -201,7 +190,7 @@ void   run_OMPCPU(
         strike = 0.001*i;
         res[i] = value( globs, s0, strike, t,
                         alpha, nu,    beta,
-                        numX,  numY,  numT, i );
+                        numX,  numY,  numT );
     }
 }
 
