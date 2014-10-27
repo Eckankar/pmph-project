@@ -124,17 +124,17 @@ void initGrid_kernel(
         return;
 
     for (unsigned i=0;i<numT;++i) {
-        myTimeline[IDX2(outer, numT, tid_outer, i)] = t*i/(numT-1); // [tid_outer][i]
+        myTimeline[IDX2(numT, outer, i, tid_outer)] = t*i/(numT-1); // [tid_outer][i]
     }
 
     for(unsigned i=0;i<numX;++i) {
         //globs.myX[i] =
-        myX[IDX2(outer, numX, tid_outer, i)] = i*dx - myXindex*dx + s0;
+        myX[IDX2(numX, outer, i, tid_outer)] = i*dx - myXindex*dx + s0;
     }
 
     for(unsigned i=0;i<numY;++i) {
         //globs.myY[i] =
-        myY[IDX2(outer, numY, tid_outer, i)] = i*dy - myYindex*dy + logAlpha;
+        myY[IDX2(numY, outer, i, tid_outer)] = i*dy - myYindex*dy + logAlpha;
     }
 }
 

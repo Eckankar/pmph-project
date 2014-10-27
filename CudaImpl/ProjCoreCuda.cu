@@ -1,5 +1,6 @@
 #include "ProjHelperFun.h"
 #include "ProjCoreCUDACores.cu.h"
+#include "CudaUtilProj.cu.h"
 #include "Constants.h"
 #include <math.h>
 
@@ -146,14 +147,24 @@ void   run_cuda(
     CudaSafeCall( cudaMalloc((void **) &myVarY_d,     outer * numX * numY * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &res_d,        outer * sizeof(REAL)) );
 
+    // Transposed CUDA resources
+    REAL *myX_t_d, *myY_t_d, *myTimeline_t_d;
+    CudaSafeCall( cudaMalloc((void **) &myX_t_d,        outer * numX * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myY_t_d,        outer * numY * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myTimeline_t_d, outer * numT * sizeof(REAL)) );
+
     const dim3 block_size2 = dim3(32, 32);
     const int block_size   = block_size2.x * block_size2.y * block_size2.z;
 
     #define GRID(first,second) dim3(ceil((REAL)(first)/block_size2.x), ceil((REAL)(second)/block_size2.y))
 
     initGrid_kernel<<<ceil((REAL)outer/block_size), block_size>>>(s0, logAlpha, dx, dy, myXindex, myYindex, t,
-                                  numX, numY, numT, outer, myTimeline_d, myX_d, myY_d); // 1D
+                                  numX, numY, numT, outer, myTimeline_t_d, myX_t_d, myY_t_d); // 1D
     CudaCheckError();
+
+    transpose<REAL,32>(myX_t_d, myX_d, numX, outer);
+    transpose<REAL,32>(myY_t_d, myY_d, numY, outer);
+    transpose<REAL,32>(myTimeline_t_d, myTimeline_d, numT, outer);
 
     initOperator_kernel<<<ceil((REAL)outer/block_size), block_size>>>(myX_d, myDxx_d, outer, numX); // 1D
     CudaCheckError();
