@@ -472,4 +472,31 @@ void sgmScanInc( const unsigned int  block_size,
     cudaFree(f_inds   );
 }
 
+template <class T, int TILE> 
+__global__ void sgmMatTranspose(T *a, T *trA, int rowsA, int colsA) {
+    __shared__ T tile[TILE][TILE+1];
+
+    int gidz = blockIdx.z * blockDim.z * threadidx.z;
+    A   += gidz * rowsA * colsA;
+    Atr += gidz * rowsA * colsA;
+
+    // follows code for matrix transp in x & y
+    int tidx = threadIdx.x,
+        tidy = threadIdx.y;
+    int j = blockIdx.x * TILE + tidx,
+        i = blockIdx.y * TILE + tidy;
+
+    if (j < colsA && i < rowsA) {
+        tile[tidy][tidx] = A[i * colsA + j];
+    }
+    __syncthreads();
+
+    i = blockIdx.y * TILE + tidx;
+    j = blockIdx.x * TILE + tidy;
+
+    if (j < colsA && i < rowsA) {
+        trA[j * rowsA + i] = tile[tidx][tidy];
+    }
+}
+
 #endif //CUDA_PROJ_HELPER
