@@ -51,19 +51,19 @@ __global__ void matTransposeTiledKer(T* A, T* B, int heightA, int widthA) {
  *                 `width' rows and `height' columns!
  */
 template<class T, int tile>
-void transpose( float*             inp_d,  
-                float*             out_d, 
+void transpose( T*             inp_d,  
+                T*             out_d, 
                 const unsigned int height, 
                 const unsigned int width
 ) {
    // 1. setup block and grid parameters
-   int  dimy = ceil( ((float)height)/tile ); 
-   int  dimx = ceil( ((float) width)/tile );
+   int  dimy = ceil( ((T)height)/tile ); 
+   int  dimx = ceil( ((T) width)/tile );
    dim3 block(tile, tile, 1);
    dim3 grid (dimx, dimy, 1);
  
    //2. execute the kernel
-   matTransposeTiledKer<float,tile> <<< grid, block >>>
+   matTransposeTiledKer<T,tile> <<< grid, block >>>
                        (inp_d, out_d, height, width);    
    cudaThreadSynchronize();
 }
@@ -473,12 +473,12 @@ void sgmScanInc( const unsigned int  block_size,
 }
 
 template <class T, int TILE> 
-__global__ void sgmMatTranspose(T *a, T *trA, int rowsA, int colsA) {
+__global__ void sgmMatTranspose(T *A, T *trA, int rowsA, int colsA) {
     __shared__ T tile[TILE][TILE+1];
 
-    int gidz = blockIdx.z * blockDim.z * threadidx.z;
+    int gidz = blockIdx.z * blockDim.z * threadIdx.z;
     A   += gidz * rowsA * colsA;
-    Atr += gidz * rowsA * colsA;
+    trA += gidz * rowsA * colsA;
 
     // follows code for matrix transp in x & y
     int tidx = threadIdx.x,
@@ -497,6 +497,37 @@ __global__ void sgmMatTranspose(T *a, T *trA, int rowsA, int colsA) {
     if (j < colsA && i < rowsA) {
         trA[j * rowsA + i] = tile[tidx][tidy];
     }
+}
+
+__global__ void simple3dTranspose(REAL *A, REAL *trA, int rowsA, int colsA, int depthA) {
+    int gidx = blockIdx.x * blockDim.x * threadIdx.x;
+    int gidy = blockIdx.y * blockDim.y * threadIdx.y;
+    int gidz = blockIdx.z * blockDim.z * threadIdx.z;
+
+    if (gidx >= rowsA || gidy >= colsA || gidz >= depthA) {
+        return;
+    }
+
+    trA[IDX3(depthA, colsA, rowsA, gidz, gidy, gidx)] = A[IDX3(rowsA, colsA, depthA, gidx, gidy, gidz)];
+}
+
+void transpose3d( REAL*             inp_d,  
+                REAL*             out_d, 
+                const unsigned int height, 
+                const unsigned int width,
+                const unsigned int depth
+) {
+    const int tile = 8;
+   // 1. setup block and grid parameters
+   int  dimy = ceil( ((REAL)height)/tile ); 
+   int  dimx = ceil( ((REAL) width)/tile );
+   int  dimz = ceil( ((REAL) depth)/tile );
+   dim3 block(tile, tile, tile);
+   dim3 grid (dimx, dimy, dimz);
+ 
+   //2. execute the kernel
+   simple3dTranspose<<< grid, block >>>(inp_d, out_d, height, width, depth);    
+   cudaThreadSynchronize();
 }
 
 #endif //CUDA_PROJ_HELPER
