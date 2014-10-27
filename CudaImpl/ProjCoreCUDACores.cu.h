@@ -130,6 +130,7 @@ void initGrid_kernel(
     for(unsigned i=0;i<numX;++i) {
         //globs.myX[i] =
         myX[IDX2(numX, outer, i, tid_outer)] = i*dx - myXindex*dx + s0;
+        //myX[IDX2(numX, outer, i, tid_outer)] = i;
     }
 
     for(unsigned i=0;i<numY;++i) {

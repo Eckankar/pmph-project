@@ -2,7 +2,6 @@
 #include "ProjCoreCUDACores.cu.h"
 #include "CudaUtilProj.cu.h"
 #include "Constants.h"
-#include <math.h>
 
 // CUDA error checking macros; taken from http://choorucode.com/2011/03/02/how-to-do-error-checking-in-cuda/ 
 #define CUDA_ERROR_CHECK
@@ -157,6 +156,9 @@ void   run_cuda(
     const int block_size   = block_size2.x * block_size2.y * block_size2.z;
 
     #define GRID(first,second) dim3(ceil((REAL)(first)/block_size2.x), ceil((REAL)(second)/block_size2.y))
+    //CudaSafeCall(cudaMemcpy(myX_d, myX, outer * numX * sizeof(REAL), cudaMemcpyHostToDevice));
+    //CudaSafeCall(cudaMemcpy(myY_d,        myY, outer * numY * sizeof(REAL), cudaMemcpyHostToDevice));
+    //CudaSafeCall(cudaMemcpy(myTimeline_d, myTimeline, outer * numT * sizeof(REAL), cudaMemcpyHostToDevice));
 
     initGrid_kernel<<<ceil((REAL)outer/block_size), block_size>>>(s0, logAlpha, dx, dy, myXindex, myYindex, t,
                                   numX, numY, numT, outer, myTimeline_t_d, myX_t_d, myY_t_d); // 1D
@@ -165,6 +167,34 @@ void   run_cuda(
     transpose<REAL,32>(myX_t_d, myX_d, numX, outer);
     transpose<REAL,32>(myY_t_d, myY_d, numY, outer);
     transpose<REAL,32>(myTimeline_t_d, myTimeline_d, numT, outer);
+
+    PrivGlobs globs(numX, numY, numT);
+    initGrid(s0, alpha, nu, t, numX, numY, numT, globs);
+    REAL *myX, *myY, *myTimeline;
+    myX = (REAL*) malloc(outer * numX * sizeof(REAL));
+    myY = (REAL*) malloc(outer * numY * sizeof(REAL));
+    myTimeline = (REAL*) malloc(outer * numT * sizeof(REAL));
+
+    cudaMemcpy(myX, myX_d, outer * numX * sizeof(REAL), cudaMemcpyDeviceToHost);
+
+    for (int o = 0; o < outer; ++o) {
+        for (int x = 0; x < numX; ++x) {
+            //printf("(%d,%d): %f\n", o, x, myX[IDX2(outer, numX, o, x)]);
+            REAL x1 = globs.myX[x];
+            REAL x2 = myX[IDX2(outer, numX, o, x)];
+            if (abs(x1-x2) >= 1e-14) {
+                printf("(%d,%d), %.14f, %.14f, %.14f\n", o, x, abs(x1-x2), x1, x2);
+            }
+        }
+        //for (int y = 0; y < numY; ++y) {
+        //    myY[IDX2(outer, numY, o, y)] = globs.myY[y];
+        //}
+        //for (int y = 0; y < numT; ++y) {
+        //    myTimeline[IDX2(outer, numT, o, y)] = globs.myTimeline[y];
+        //}
+    }
+
+
 
     initOperator_kernel<<<ceil((REAL)outer/block_size), block_size>>>(myX_d, myDxx_d, outer, numX); // 1D
     CudaCheckError();

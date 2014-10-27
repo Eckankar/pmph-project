@@ -29,7 +29,7 @@ using std::endl;
     #define read_real read_double
 #endif
 
-const float EPS = 0.0001;
+const float EPS = 0.00001;
 
 
 /*******************************************************/
