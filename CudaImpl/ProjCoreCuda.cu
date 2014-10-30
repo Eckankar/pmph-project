@@ -171,6 +171,7 @@ void   run_cuda(
                                   numX, numY, numT, myTimeline_d, myX_d, myY_d); // 1D
     CudaCheckError();
 
+#if DO_DEBUG
     PrivGlobs globs(numX, numY, numT);
     initGrid(s0, alpha, nu, t, numX, numY, numT, globs);
 
@@ -203,6 +204,7 @@ void   run_cuda(
 
     initOperator(globs.myX,globs.myDxx);
     initOperator(globs.myY,globs.myDyy);
+#endif
 
     initOperator_kernel<<<ceil((REAL)numX/block_size), block_size>>>(myX_d, myDxx_t_d, numX); // 1D
     CudaCheckError();
@@ -210,6 +212,7 @@ void   run_cuda(
     initOperator_kernel<<<ceil((REAL)numY/block_size), block_size>>>(myY_d, myDyy_t_d, numY); // 1D
     CudaCheckError();
 
+#if DO_DEBUG
     transpose<REAL,32>(myDxx_t_d, myDxx_d, 4, numX);
     transpose<REAL,32>(myDyy_t_d, myDyy_d, 4, numY);
 
@@ -229,9 +232,11 @@ void   run_cuda(
     }
 
     printf("Initoperator checked.\n");
+#endif
 
     setPayoff_kernel<<<GRID(numY, numX), block_size2>>>(myX_d, myY_d, myResult_d, numX, numY, outer); // 2D
 
+#if DO_DEBUG
     REAL *myResult;
     myResult = (REAL*) malloc(outer * numX * numY * sizeof(REAL));
     cudaMemcpy(myResult, myResult_d, outer * numX * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
@@ -249,6 +254,7 @@ void   run_cuda(
     }
 
     printf("setPayoff checked.\n");
+#endif
 
     // stuff
     unsigned int numZ = max(numX, numY);
@@ -278,12 +284,15 @@ void   run_cuda(
 
 
     for (int j = numT-2; j>=0; --j) {
+#if DO_DEBUG
         cudaDeviceSynchronize();
         printf("time step %d\n", j);
+#endif
 
         updateParams_large_kernel<<<GRID(numY, numX), block_size2>>>(j, alpha, beta, nu, numX, numY,
                                                 numT, myX_d, myY_d, myVarX_d, myVarY_d, myTimeline_d); // 2D
 
+#if DO_DEBUG
         if (j == numT-2) {
             REAL *myVarX, *myVarY;
             myVarX = (REAL*) malloc(numX * numY * sizeof(REAL));
@@ -312,6 +321,7 @@ void   run_cuda(
 
             printf("updateParams checked.\n");
         }
+#endif
 
         rollback_explicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numT, j, u_t_d,
                 myTimeline_d, myVarX_d, myDxx_t_d, myResult_d); // 2D
