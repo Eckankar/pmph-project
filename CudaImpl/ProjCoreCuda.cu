@@ -340,7 +340,7 @@ void   run_cuda(
         rollback_implicit_x_part2_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, numZ, u_d,
                 a_d, b_d, c_d, yy_d); // 2D
 
-        transpose3d(u_d, u_t_d, outer, numZ, numZ);
+        transpose3d(u_d, u_t_d, outer, numY, numX);
 
 
         rollback_implicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, numT, j,
