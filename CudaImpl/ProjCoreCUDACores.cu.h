@@ -89,9 +89,9 @@ void updateParams_large_kernel(
         return;
 
     for (unsigned j = 0; j < numY; ++j) {
-        REAL x        = myX[IDX2(max_outer, numX, tid_outer, tid_x)],
-             y        = myY[IDX2(max_outer, numY, tid_outer, j)],
-             timeline = myTimeline[IDX2(max_outer, numT, tid_outer, g)];
+        REAL x        = myX[tid_x],
+             y        = myY[j],
+             timeline = myTimeline[g];
 
         myVarX[IDX3(max_outer, numX, numY, tid_outer, tid_x, j)]
             = exp(2.0 * (beta * log(x) + y - 0.5*nu*nu*timeline));
@@ -118,69 +118,46 @@ void initGrid_kernel(
         const unsigned numX,
         const unsigned numY,
         const unsigned numT,
-        const unsigned outer,
         REAL *myTimeline,
         REAL *myX,
         REAL *myY
 ) {
-    unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_i = blockIdx.x*blockDim.x + threadIdx.x;
 
-    if (tid_outer >= outer)
-        return;
-
-    for (unsigned i=0;i<numT;++i) {
-        myTimeline[IDX2(numT, outer, i, tid_outer)] = t*i/(numT-1); // [tid_outer][i]
+    if (tid_i < numT) {
+        myTimeline[tid_i] = t*tid_i/(numT-1);
     }
 
-    for(unsigned i=0;i<numX;++i) {
-        //globs.myX[i] =
-        myX[IDX2(numX, outer, i, tid_outer)] = i*dx - myXindex*dx + s0;
-        //myX[IDX2(numX, outer, i, tid_outer)] = i;
+    if (tid_i < numX) {
+        myX[tid_i] = tid_i*dx - myXindex*dx + s0;
     }
 
-    for(unsigned i=0;i<numY;++i) {
-        //globs.myY[i] =
-        myY[IDX2(numY, outer, i, tid_outer)] = i*dy - myYindex*dy + logAlpha;
+    if (tid_i < numY) {
+        myY[tid_i] = tid_i*dy - myYindex*dy + logAlpha;
     }
 }
 
 __global__
 void initOperator_kernel(REAL *x, REAL *Dxx, const unsigned outer, const unsigned numX) {
-    unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_x = blockIdx.x*blockDim.x + threadIdx.x;
 
-    if (tid_outer >= outer)
+    if (tid_x >= numX)
         return;
 
-    REAL dxl, dxu;
+    if (tid_x == 0 || tid_x == numX-1) {
+        Dxx[IDX2(numX,4, tid_x,0)] =  0.0;
+        Dxx[IDX2(numX,4, tid_x,1)] =  0.0;
+        Dxx[IDX2(numX,4, tid_x,2)] =  0.0;
+        Dxx[IDX2(numX,4, tid_x,3)] =  0.0;
+    } else {
+        REAL dxl = x[tid_x] - x[tid_x-1];
+        REAL dxu = x[tid_x+1] - x[tid_x];
 
-    //  lower boundary
-    dxl      =  0.0;
-    dxu      =  x[IDX2(outer, numX, tid_outer, 1)] - x[IDX2(outer, numX, tid_outer, 0)];
-
-    Dxx[IDX3(outer, numX, 4, tid_outer, 0, 0)] =  0.0;
-    Dxx[IDX3(outer, numX, 4, tid_outer, 0, 1)] =  0.0;
-    Dxx[IDX3(outer, numX, 4, tid_outer, 0, 2)] =  0.0;
-    Dxx[IDX3(outer, numX, 4, tid_outer, 0, 3)] =  0.0;
-
-    //  standard case
-    for (unsigned i=1; i < numX-1; i++) {
-        dxl      = x[IDX2(outer, numX, tid_outer, i)]   - x[IDX2(outer, numX, tid_outer, i-1)];
-        dxu      = x[IDX2(outer, numX, tid_outer, i+1)] - x[IDX2(outer, numX, tid_outer, i)];
-
-        Dxx[IDX3(outer, numX, 4, tid_outer, i, 0)] =  2.0/dxl/(dxl+dxu);
-        Dxx[IDX3(outer, numX, 4, tid_outer, i, 1)] = -2.0*(1.0/dxl + 1.0/dxu)/(dxl+dxu);
-        Dxx[IDX3(outer, numX, 4, tid_outer, i, 2)] =  2.0/dxu/(dxl+dxu);
-        Dxx[IDX3(outer, numX, 4, tid_outer, i, 3)] =  0.0;
+        Dxx[IDX2(numX,4, tid_x,0)] =  2.0/dxl/(dxl+dxu);
+        Dxx[IDX2(numX,4, tid_x,1)] = -2.0*(1.0/dxl + 1.0/dxu)/(dxl+dxu);
+        Dxx[IDX2(numX,4, tid_x,2)] =  2.0/dxu/(dxl+dxu);
+        Dxx[IDX2(numX,4, tid_x,3)] =  0.0;
     }
-
-    //  upper boundary
-    dxl        =  x[IDX2(outer, numX, tid_outer, numX-1)] - x[IDX2(outer, numX, tid_outer, numX-2)];
-    dxu        =  0.0;
-
-    Dxx[IDX3(outer, numX, 4, tid_outer, numX-1, 0)] = 0.0;
-    Dxx[IDX3(outer, numX, 4, tid_outer, numX-1, 1)] = 0.0;
-    Dxx[IDX3(outer, numX, 4, tid_outer, numX-1, 2)] = 0.0;
-    Dxx[IDX3(outer, numX, 4, tid_outer, numX-1, 3)] = 0.0;
 }
 
 __global__
@@ -195,7 +172,7 @@ void setPayoff_kernel(REAL *myX, REAL *myY, REAL *myResult, const unsigned numX,
     REAL strike;
     strike = 0.001*tid_outer;
 
-    REAL payoff = max(myX[IDX2(outer, numX, tid_outer, tid_x)]-strike, (REAL)0.0);
+    REAL payoff = max(myX[tid_x]-strike, (REAL)0.0);
     for (unsigned j=0; j < numY; ++j) {
         myResult[IDX3(outer, numX, numY, tid_outer, tid_x, j)] = payoff;
     }
@@ -238,7 +215,7 @@ void rollback_explicit_x_kernel(
     if (tid_outer >= outer || tid_x >= numX)
         return;
 
-    REAL dtInv = 1.0/(myTimeline[IDX2(outer,numT, tid_outer,g+1)] - myTimeline[IDX2(outer,numT, tid_outer,g)]);
+    REAL dtInv = 1.0/(myTimeline[g+1] - myTimeline[g]);
 
     for(int j=0; j < numY; j++) {
         REAL *myu = &u[IDX3(outer,numY,numX, tid_outer,j,tid_x)];
@@ -247,13 +224,13 @@ void rollback_explicit_x_kernel(
         *myu = dtInv*myResult[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
 
         if(tid_x > 0) {
-            *myu += 0.5 * ( 0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,tid_x,0)] )
+            *myu += 0.5 * ( 0.5 * mymyVarX * myDxx[IDX2(numX,4, tid_x,0)] )
                         * myResult[IDX3(outer,numX,numY, tid_outer,tid_x-1,j)];
         }
-        *myu  +=  0.5 * ( 0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,tid_x,1)] )
+        *myu  +=  0.5 * ( 0.5 * mymyVarX * myDxx[IDX2(numX,4, tid_x,1)] )
                         * myResult[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
         if(tid_x < numX-1) {
-            *myu += 0.5 * ( 0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,tid_x,2)] )
+            *myu += 0.5 * ( 0.5 * mymyVarX * myDxx[IDX2(numX,4, tid_x,2)] )
                         * myResult[IDX3(outer,numX,numY, tid_outer,tid_x+1,j)];
         }
     }
@@ -284,13 +261,13 @@ void rollback_explicit_y_kernel(
         *myv = 0.0;
 
         if(tid_y > 0) {
-            *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX3(outer,numY,4, tid_outer,tid_y,0)] )
+            *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(numY,4, tid_y,0)] )
                         * myResult[IDX3(outer,numX,numY, tid_outer,i,tid_y-1)];
         }
-        *myv  +=  0.5 * ( 0.5 * mymyVarY * myDyy[IDX3(outer,numY,4, tid_outer,tid_y,1)] )
+        *myv  +=  0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(numY,4, tid_y,1)] )
                         * myResult[IDX3(outer,numX,numY, tid_outer,i,tid_y)];
         if(tid_y < numY-1) {
-            *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX3(outer,numY,4, tid_outer,tid_y,2)] )
+            *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(numY,4, tid_y,2)] )
                         * myResult[IDX3(outer,numX,numY, tid_outer,i,tid_y+1)];
         }
 
@@ -328,14 +305,14 @@ void rollback_implicit_x_kernel(
     REAL *myYY = &yy[IDX3(outer,numZ,numZ, tid_outer,tid_y,0)];
     REAL *myU  =  &u[IDX3(outer,numY,numX, tid_outer,tid_y,0)];
 
-    REAL dtInv = 1.0/(myTimeline[IDX2(outer,numT, tid_outer,g+1)] - myTimeline[IDX2(outer,numT, tid_outer,g)]);
+    REAL dtInv = 1.0/(myTimeline[g+1] - myTimeline[g]);
 
     for(int i=0; i < numX; i++) {  // here a, b,c should have size [numX]
         REAL mymyVarX = myVarX[IDX3(outer,numX,numY, tid_outer,i,tid_y)];
 
-        myA[i] =       - 0.5 * (0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,i,0)]);
-        myB[i] = dtInv - 0.5 * (0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,i,1)]);
-        myC[i] =       - 0.5 * (0.5 * mymyVarX * myDxx[IDX3(outer,numX,4, tid_outer,i,2)]);
+        myA[i] =       - 0.5 * (0.5 * mymyVarX * myDxx[IDX2(numX,4, i,0)]);
+        myB[i] = dtInv - 0.5 * (0.5 * mymyVarX * myDxx[IDX2(numX,4, i,1)]);
+        myC[i] =       - 0.5 * (0.5 * mymyVarX * myDxx[IDX2(numX,4, i,2)]);
     }
 
     // here yy should have size [numX]
@@ -374,14 +351,14 @@ void rollback_implicit_y_kernel(
     REAL *myY  =  &y[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
     REAL *myYY = &yy[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
 
-    REAL dtInv = 1.0/(myTimeline[IDX2(outer,numT, tid_outer,g+1)] - myTimeline[IDX2(outer,numT, tid_outer,g)]);
+    REAL dtInv = 1.0/(myTimeline[g+1] - myTimeline[g]);
 
     for(int j=0; j < numY; j++) {  // here a, b,c should have size [numX]
         REAL mymyVarY = myVarY[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
 
-        myA[j] =       - 0.5 * (0.5 * mymyVarY * myDyy[IDX3(outer,numY,4, tid_outer,j,0)]);
-        myB[j] = dtInv - 0.5 * (0.5 * mymyVarY * myDyy[IDX3(outer,numY,4, tid_outer,j,1)]);
-        myC[j] =       - 0.5 * (0.5 * mymyVarY * myDyy[IDX3(outer,numY,4, tid_outer,j,2)]);
+        myA[j] =       - 0.5 * (0.5 * mymyVarY * myDyy[IDX2(numY,4, j,0)]);
+        myB[j] = dtInv - 0.5 * (0.5 * mymyVarY * myDyy[IDX2(numY,4, j,1)]);
+        myC[j] =       - 0.5 * (0.5 * mymyVarY * myDyy[IDX2(numY,4, j,2)]);
         myY[j] = dtInv * u[IDX3(outer,numY,numX, tid_outer,j,tid_x)]
                - 0.5   * v[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
     }

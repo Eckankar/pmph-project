@@ -113,9 +113,9 @@ void   run_cuda(
                       REAL*           res   // [outer] RESULT
 ) {
     // grid
-    //REAL myX[outer][numX];
-    //REAL myY[outer][numY];
-    //REAL myTimeline[outer][numT];
+    //REAL myX[numX];
+    //REAL myY[numY];
+    //REAL myTimeline[numT];
     unsigned int myXindex;
     unsigned int myYindex;
 
@@ -127,8 +127,8 @@ void   run_cuda(
     //REAL myVarY[outer][numX][numY];
 
     // operators
-    //REAL myDxx[outer][numX][4];
-    //REAL myDyy[outer][numY][4];
+    //REAL myDxx[numX][4];
+    //REAL myDyy[numY][4];
 
     const REAL stdX = 20.0*alpha*s0*sqrt(t);
     const REAL dx = stdX/numX;
@@ -141,21 +141,15 @@ void   run_cuda(
 
     // Allocate CUDA resources
     REAL *myX_d, *myY_d, *myTimeline_d, *myDxx_d, *myDyy_d, *myResult_d, *myVarX_d, *myVarY_d, *res_d;
-    CudaSafeCall( cudaMalloc((void **) &myX_d,        outer * numX * sizeof(REAL)) );
-    CudaSafeCall( cudaMalloc((void **) &myY_d,        outer * numY * sizeof(REAL)) );
-    CudaSafeCall( cudaMalloc((void **) &myTimeline_d, outer * numT * sizeof(REAL)) );
-    CudaSafeCall( cudaMalloc((void **) &myDxx_d,      outer * numX * 4 * sizeof(REAL)) );
-    CudaSafeCall( cudaMalloc((void **) &myDyy_d,      outer * numY * 4 * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myX_d,        numX * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myY_d,        numY * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myTimeline_d, numT * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myDxx_d,      numX * 4 * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myDyy_d,      numY * 4 * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myResult_d,   outer * numX * numY * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myVarX_d,     outer * numX * numY * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myVarY_d,     outer * numX * numY * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &res_d,        outer * sizeof(REAL)) );
-
-    // Transposed CUDA resources
-    REAL *myX_t_d, *myY_t_d, *myTimeline_t_d;
-    CudaSafeCall( cudaMalloc((void **) &myX_t_d,        outer * numX * sizeof(REAL)) );
-    CudaSafeCall( cudaMalloc((void **) &myY_t_d,        outer * numY * sizeof(REAL)) );
-    CudaSafeCall( cudaMalloc((void **) &myTimeline_t_d, outer * numT * sizeof(REAL)) );
 
     const dim3 block_size2 = dim3(32, 32);
     const int block_size   = block_size2.x * block_size2.y * block_size2.z;
@@ -165,66 +159,60 @@ void   run_cuda(
     //CudaSafeCall(cudaMemcpy(myY_d,        myY, outer * numY * sizeof(REAL), cudaMemcpyHostToDevice));
     //CudaSafeCall(cudaMemcpy(myTimeline_d, myTimeline, outer * numT * sizeof(REAL), cudaMemcpyHostToDevice));
 
-    initGrid_kernel<<<ceil((REAL)outer/block_size), block_size>>>(s0, logAlpha, dx, dy, myXindex, myYindex, t,
-                                  numX, numY, numT, outer, myTimeline_t_d, myX_t_d, myY_t_d); // 1D
-    CudaCheckError();
+    unsigned int maxXYT = max(numX, max(numY, numT));
 
-    transpose<REAL,32>(myX_t_d, myX_d, numX, outer);
-    transpose<REAL,32>(myY_t_d, myY_d, numY, outer);
-    transpose<REAL,32>(myTimeline_t_d, myTimeline_d, numT, outer);
+    initGrid_kernel<<<ceil((REAL)maxXYT/block_size), block_size>>>(s0, logAlpha, dx, dy, myXindex, myYindex, t,
+                                  numX, numY, numT, myTimeline_d, myX_d, myY_d); // 1D
+    CudaCheckError();
 
     PrivGlobs globs(numX, numY, numT);
     initGrid(s0, alpha, nu, t, numX, numY, numT, globs);
 
     REAL *myX, *myY, *myTimeline;
-    myX = (REAL*) malloc(outer * numX * sizeof(REAL));
-    myY = (REAL*) malloc(outer * numY * sizeof(REAL));
-    myTimeline = (REAL*) malloc(outer * numT * sizeof(REAL));
+    myX = (REAL*) malloc(numX * sizeof(REAL));
+    myY = (REAL*) malloc(numY * sizeof(REAL));
+    myTimeline = (REAL*) malloc(numT * sizeof(REAL));
 
-    cudaMemcpy(myX, myX_d, outer * numX * sizeof(REAL), cudaMemcpyDeviceToHost);
-    cudaMemcpy(myY, myY_d, outer * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
-    cudaMemcpy(myTimeline, myTimeline_d, outer * numT * sizeof(REAL), cudaMemcpyDeviceToHost);
+    cudaMemcpy(myX, myX_d, numX * sizeof(REAL), cudaMemcpyDeviceToHost);
+    cudaMemcpy(myY, myY_d, numY * sizeof(REAL), cudaMemcpyDeviceToHost);
+    cudaMemcpy(myTimeline, myTimeline_d, numT * sizeof(REAL), cudaMemcpyDeviceToHost);
 
-    for (int o = 0; o < outer; ++o) {
-        for (int x = 0; x < numX; ++x) {
-            REAL x1 = globs.myX[x];
-            REAL x2 = myX[IDX2(outer, numX, o, x)];
-            if (abs(x1-x2) >= 1e-7) {
-                printf("myX(%d,%d), %.14f, %.14f, %.14f\n", o, x, abs(x1-x2), x1, x2);
-            }
+    for (int x = 0; x < numX; ++x) {
+        REAL x1 = globs.myX[x];
+        REAL x2 = myX[x];
+        if (abs(x1-x2) >= 1e-7) {
+            printf("myX(%d), %.14f, %.14f, %.14f\n", x, abs(x1-x2), x1, x2);
         }
     }
 
     for (int i = 0; i < numX; i++) {
-        globs.myX[i] = myX[IDX2(outer,numX, 0,i)];
+        globs.myX[i] = myX[i];
     }
     for (int i = 0; i < numY; i++) {
-        globs.myY[i] = myY[IDX2(outer,numY, 0,i)];
+        globs.myY[i] = myY[i];
     }
     for (int i = 0; i < numT; i++) {
-        globs.myTimeline[i] = myTimeline[IDX2(outer,numT, 0,i)];
+        globs.myTimeline[i] = myTimeline[i];
     }
 
     initOperator(globs.myX,globs.myDxx);
     initOperator(globs.myY,globs.myDyy);
 
-    initOperator_kernel<<<ceil((REAL)outer/block_size), block_size>>>(myX_d, myDxx_d, outer, numX); // 1D
+    initOperator_kernel<<<ceil((REAL)numX/block_size), block_size>>>(myX_d, myDxx_d, outer, numX); // 1D
     CudaCheckError();
 
     REAL *myDxx;
-    myDxx = (REAL*) malloc(outer * numX * 4 * sizeof(REAL));
+    myDxx = (REAL*) malloc(numX * 4 * sizeof(REAL));
 
-    cudaMemcpy(myDxx, myDxx_d, outer * numX * 4 * sizeof(REAL), cudaMemcpyDeviceToHost);
+    cudaMemcpy(myDxx, myDxx_d, numX * 4 * sizeof(REAL), cudaMemcpyDeviceToHost);
 
-    for (int o = 0; o < outer; ++o) {
     for (int x = 0; x < numX; ++x) {
     for (int i = 0; i < 4; ++i) {
         REAL x1 = globs.myDxx[x][i];
-        REAL x2 = myDxx[IDX3(outer,numX,4, o,x,i)];
+        REAL x2 = myDxx[IDX2(numX,4, x,i)];
         if (abs(x1-x2) >= 1e-10) {
-            printf("myDxx(%d,%d,%d), %.14f, %.14f, %.14f\n", o, x, i, abs(x1-x2), x1, x2);
+            printf("myDxx(%d,%d), %.14f, %.14f, %.14f\n", x, i, abs(x1-x2), x1, x2);
         }
-    }
     }
     }
 
