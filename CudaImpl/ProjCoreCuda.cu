@@ -170,39 +170,78 @@ void   run_cuda(
 
     PrivGlobs globs(numX, numY, numT);
     initGrid(s0, alpha, nu, t, numX, numY, numT, globs);
-    REAL *myX, *myY, *myTimeline;
+
+    REAL *myX, *myY;
     myX = (REAL*) malloc(outer * numX * sizeof(REAL));
     myY = (REAL*) malloc(outer * numY * sizeof(REAL));
-    myTimeline = (REAL*) malloc(outer * numT * sizeof(REAL));
 
     cudaMemcpy(myX, myX_d, outer * numX * sizeof(REAL), cudaMemcpyDeviceToHost);
+    cudaMemcpy(myY, myY_d, outer * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
 
     for (int o = 0; o < outer; ++o) {
         for (int x = 0; x < numX; ++x) {
-            //printf("(%d,%d): %f\n", o, x, myX[IDX2(outer, numX, o, x)]);
             REAL x1 = globs.myX[x];
             REAL x2 = myX[IDX2(outer, numX, o, x)];
-            if (abs(x1-x2) >= 1e-14) {
-                printf("(%d,%d), %.14f, %.14f, %.14f\n", o, x, abs(x1-x2), x1, x2);
+            if (abs(x1-x2) >= 1e-7) {
+                printf("myX(%d,%d), %.14f, %.14f, %.14f\n", o, x, abs(x1-x2), x1, x2);
             }
         }
-        //for (int y = 0; y < numY; ++y) {
-        //    myY[IDX2(outer, numY, o, y)] = globs.myY[y];
-        //}
-        //for (int y = 0; y < numT; ++y) {
-        //    myTimeline[IDX2(outer, numT, o, y)] = globs.myTimeline[y];
-        //}
     }
 
+    for (int i = 0; i < numX; i++) {
+        globs.myX[i] = myX[IDX2(outer,numX, 0,i)];
+    }
+    for (int i = 0; i < numY; i++) {
+        globs.myY[i] = myY[IDX2(outer,numY, 0,i)];
+    }
 
+    initOperator(globs.myX,globs.myDxx);
 
     initOperator_kernel<<<ceil((REAL)outer/block_size), block_size>>>(myX_d, myDxx_d, outer, numX); // 1D
     CudaCheckError();
+
+    REAL *myDxx;
+    myDxx = (REAL*) malloc(outer * numX * 4 * sizeof(REAL));
+
+    cudaMemcpy(myDxx, myDxx_d, outer * numX * 4 * sizeof(REAL), cudaMemcpyDeviceToHost);
+
+    for (int o = 0; o < outer; ++o) {
+    for (int x = 0; x < numX; ++x) {
+    for (int i = 0; i < 4; ++i) {
+        REAL x1 = globs.myDxx[x][i];
+        REAL x2 = myDxx[IDX3(outer,numX,4, o,x,i)];
+        if (abs(x1-x2) >= 1e-10) {
+            printf("myDxx(%d,%d,%d), %.14f, %.14f, %.14f\n", o, x, i, abs(x1-x2), x1, x2);
+        }
+    }
+    }
+    }
+
+    printf("Initoperator checked.\n");
+
+
     initOperator_kernel<<<ceil((REAL)outer/block_size), block_size>>>(myY_d, myDyy_d, outer, numY); // 1D
     CudaCheckError();
 
     setPayoff_kernel<<<GRID(outer, numX), block_size2>>>(myX_d, myY_d, myResult_d, numX, numY, outer); // 2D
+
+    REAL *myResult;
+    myResult = (REAL*) malloc(outer * numX * numY * sizeof(REAL));
+    cudaMemcpy(myResult, myResult_d, outer * numX * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
     CudaCheckError();
+
+    setPayoff(0.001 * 7, globs);
+    for (int x = 0; x < numX; ++x) {
+    for (int y = 0; y < numY; ++y) {
+        REAL x1 = globs.myResult[x][y];
+        REAL x2 = myResult[IDX3(outer,numX,numY, 7,x,y)];
+        if (abs(x1-x2) >= 1e-10) {
+            printf("myResult(%d,%d,%d), %.14f, %.14f, %.14f\n", 7, x, y, abs(x1-x2), x1, x2);
+        }
+    }
+    }
+
+    printf("setPayoff checked.\n");
 
     // stuff
     unsigned int numZ = max(numX, numY);
