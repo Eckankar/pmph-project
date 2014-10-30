@@ -152,9 +152,11 @@ void   run_cuda(
     CudaSafeCall( cudaMalloc((void **) &res_d,        outer * sizeof(REAL)) );
 
     const dim3 block_size2 = dim3(32, 32);
+    const dim3 block_size3 = dim3(8, 8, 8);
     const int block_size   = block_size2.x * block_size2.y * block_size2.z;
 
     #define GRID(first,second) dim3(ceil((REAL)(first)/block_size2.x), ceil((REAL)(second)/block_size2.y))
+    #define GRID3(first,second,third) dim3(ceil((REAL)(first)/block_size3.x), ceil((REAL)(second)/block_size3.y), ceil((REAL)(third)/block_size3.y))
     //CudaSafeCall(cudaMemcpy(myX_d, myX, outer * numX * sizeof(REAL), cudaMemcpyHostToDevice));
     //CudaSafeCall(cudaMemcpy(myY_d,        myY, outer * numY * sizeof(REAL), cudaMemcpyHostToDevice));
     //CudaSafeCall(cudaMemcpy(myTimeline_d, myTimeline, outer * numT * sizeof(REAL), cudaMemcpyHostToDevice));
@@ -198,7 +200,7 @@ void   run_cuda(
     initOperator(globs.myX,globs.myDxx);
     initOperator(globs.myY,globs.myDyy);
 
-    initOperator_kernel<<<ceil((REAL)numX/block_size), block_size>>>(myX_d, myDxx_d, outer, numX); // 1D
+    initOperator_kernel<<<ceil((REAL)numX/block_size), block_size>>>(myX_d, myDxx_d, numX); // 1D
     CudaCheckError();
 
     REAL *myDxx;
@@ -219,7 +221,7 @@ void   run_cuda(
     printf("Initoperator checked.\n");
 
 
-    initOperator_kernel<<<ceil((REAL)outer/block_size), block_size>>>(myY_d, myDyy_d, outer, numY); // 1D
+    initOperator_kernel<<<ceil((REAL)numY/block_size), block_size>>>(myY_d, myDyy_d, numY); // 1D
     CudaCheckError();
 
     setPayoff_kernel<<<GRID(outer, numX), block_size2>>>(myX_d, myY_d, myResult_d, numX, numY, outer); // 2D

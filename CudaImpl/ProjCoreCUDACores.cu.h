@@ -138,7 +138,7 @@ void initGrid_kernel(
 }
 
 __global__
-void initOperator_kernel(REAL *x, REAL *Dxx, const unsigned outer, const unsigned numX) {
+void initOperator_kernel(REAL *x, REAL *Dxx, const unsigned numX) {
     unsigned int tid_x = blockIdx.x*blockDim.x + threadIdx.x;
 
     if (tid_x >= numX)
