@@ -472,11 +472,14 @@ void sgmScanInc( const unsigned int  block_size,
     cudaFree(f_inds   );
 }
 
-template <class T, int TILE> 
-__global__ void sgmMatTranspose(T *A, T *trA, int rowsA, int colsA) {
+template <class T, int TILE>
+__global__ void sgmMatTranspose(T *A, T *trA, int rowsA, int colsA, int depthA) {
     __shared__ T tile[TILE][TILE+1];
 
-    int gidz = blockIdx.z * blockDim.z * threadIdx.z;
+    int gidz = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (gidz >= depthA) return;
+
     A   += gidz * rowsA * colsA;
     trA += gidz * rowsA * colsA;
 
@@ -500,15 +503,15 @@ __global__ void sgmMatTranspose(T *A, T *trA, int rowsA, int colsA) {
 }
 
 __global__ void simple3dTranspose(REAL *A, REAL *trA, int rowsA, int colsA, int depthA) {
-    int gidx = blockIdx.x * blockDim.x * threadIdx.x;
-    int gidy = blockIdx.y * blockDim.y * threadIdx.y;
-    int gidz = blockIdx.z * blockDim.z * threadIdx.z;
+    int gidx = blockIdx.x * blockDim.x + threadIdx.x;
+    int gidy = blockIdx.y * blockDim.y + threadIdx.y;
+    int gidz = blockIdx.z * blockDim.z + threadIdx.z;
 
     if (gidx >= rowsA || gidy >= colsA || gidz >= depthA) {
         return;
     }
 
-    trA[IDX3(depthA, colsA, rowsA, gidz, gidy, gidx)] = A[IDX3(rowsA, colsA, depthA, gidx, gidy, gidz)];
+    trA[IDX3(rowsA, depthA, colsA, gidx, gidz, gidy)] = A[IDX3(rowsA, colsA, depthA, gidx, gidy, gidz)];
 }
 
 void transpose3d( REAL*             inp_d,  
@@ -519,14 +522,16 @@ void transpose3d( REAL*             inp_d,
 ) {
     const int tile = 8;
    // 1. setup block and grid parameters
-   int  dimy = ceil( ((REAL)height)/tile ); 
-   int  dimx = ceil( ((REAL) width)/tile );
+   int  dimx = ceil( ((REAL)height)/tile ); 
+   int  dimy = ceil( ((REAL) width)/tile );
    int  dimz = ceil( ((REAL) depth)/tile );
    dim3 block(tile, tile, tile);
+   //dim3 grid (dimz, dimy, dimx);
    dim3 grid (dimx, dimy, dimz);
  
    //2. execute the kernel
    simple3dTranspose<<< grid, block >>>(inp_d, out_d, height, width, depth);    
+   //sgmMatTranspose<REAL,32><<<grid,block>>>(inp_d, out_d, depth, width, height);
    cudaThreadSynchronize();
 }
 

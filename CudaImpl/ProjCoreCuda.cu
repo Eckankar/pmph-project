@@ -269,6 +269,10 @@ void   run_cuda(
     CudaSafeCall( cudaMalloc((void **) &y_d,     outer * numZ * numZ * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &yy_d,    outer * numZ * numZ * sizeof(REAL)) );
 
+    // Transposed
+    REAL *u_t_d;
+    CudaSafeCall( cudaMalloc((void **) &u_t_d,     outer * numY * numX * sizeof(REAL)) );
+
 
     for (int j = numT-2; j>=0; --j) {
         cudaDeviceSynchronize();
@@ -306,8 +310,11 @@ void   run_cuda(
             printf("updateParams checked.\n");
         }
 
-        rollback_explicit_x_kernel<<<GRID(outer, numX), block_size2>>>(outer, numX, numY, numT, j, u_d, myTimeline_d,
-                                                 myVarX_d, myDxx_d, myResult_d); // 2D
+        rollback_explicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numT, j, u_t_d, myTimeline_d,
+                                                 myVarX_d, myDxx_t_d, myResult_d); // 2D
+
+        transpose3d(u_t_d, u_d, outer, numX, numY);
+
 
         rollback_explicit_y_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, u_d, v_d, myTimeline_d,
                                                  myVarY_d, myDyy_d, myResult_d); // 2D
