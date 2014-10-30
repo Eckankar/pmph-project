@@ -130,6 +130,59 @@ void   run_cuda(
     //REAL myDxx[numX][4];
     //REAL myDyy[numY][4];
 
+#if DO_DEBUG
+    REAL testMatrix[2][3][4] = {
+        { {1,2,3,4},
+          {5,6,7,8},
+          {9,10,11,12} },
+        { {13,14,15,16},
+          {17,18,19,20},
+          {21,22,23,24} }
+    };
+    REAL expectedMatrix[2][4][3] = {
+        { {1,5,9},
+          {2,6,10},
+          {3,7,11},
+          {4,8,12} },
+        { {13,17,21},
+          {14,18,22},
+          {15,19,23},
+          {16,20,24} }
+    };
+    REAL testMatrix_t[2][4][3] = {0};
+
+    REAL *testMatrix_d, *testMatrix_t_d;
+    CudaSafeCall( cudaMalloc( (void **) &testMatrix_d, 2*3*4*sizeof(REAL) ) );
+    CudaSafeCall( cudaMalloc( (void **) &testMatrix_t_d, 2*4*3*sizeof(REAL) ) );
+    cudaMemcpy(testMatrix_d, testMatrix, 2*3*4*sizeof(REAL), cudaMemcpyHostToDevice);
+
+    transpose3d(testMatrix_d, testMatrix_t_d, 2, 3, 4);
+    cudaMemcpy(testMatrix_t, testMatrix_t_d, 2*3*4*sizeof(REAL), cudaMemcpyDeviceToHost);
+
+    printf("Got:\n");
+    for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 4; j++) {
+    for (int k = 0; k < 3; k++) {
+        printf("%.0f ", testMatrix_t[i][j][k]);
+    }
+        printf("\n");
+    }
+        printf("\n");
+    }
+
+    printf("Expected:\n");
+    for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 4; j++) {
+    for (int k = 0; k < 3; k++) {
+        printf("%.0f ", expectedMatrix[i][j][k]);
+    }
+        printf("\n");
+    }
+        printf("\n");
+    }
+    printf("Matrix verificeret\n");
+#endif
+
     const REAL stdX = 20.0*alpha*s0*sqrt(t);
     const REAL dx = stdX/numX;
     myXindex = static_cast<unsigned>(s0/dx) % numX;
@@ -328,12 +381,20 @@ void   run_cuda(
 
         rollback_explicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, u_t_d, v_d,
                 myTimeline_d, myVarY_d, myDyy_t_d, myResult_d); // 2D
+        cudaDeviceSynchronize();
+        printf("pre-first transpose\n");
         transpose3d(u_t_d, u_d, outer, numX, numY);
+        cudaDeviceSynchronize();
+        printf("post-first transpose\n");
 
         rollback_implicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, numT, j,
                         myTimeline_d, myVarX_d, myDxx_t_d, a_t_d, b_t_d, c_t_d);
 
+        cudaDeviceSynchronize();
+        printf("pre-second transpose\n");
         transpose3d(a_t_d, a_d, outer, numZ, numZ);
+        cudaDeviceSynchronize();
+        printf("post-second transpose\n");
         transpose3d(b_t_d, b_d, outer, numZ, numZ);
         transpose3d(c_t_d, c_d, outer, numZ, numZ);
 

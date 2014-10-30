@@ -473,15 +473,16 @@ void sgmScanInc( const unsigned int  block_size,
 }
 
 template <class T, int TILE>
-__global__ void sgmMatTranspose(T *A, T *trA, int rowsA, int colsA, int depthA) {
-    __shared__ T tile[TILE][TILE+1];
+__global__ void sgmMatTranspose(T *origA, T *origTrA, int rowsA, int colsA, int depthA) {
+    __shared__ T tile[TILE][TILE][TILE+1];
 
+    int tidz = threadIdx.z;
     int gidz = blockIdx.z * blockDim.z + threadIdx.z;
 
     if (gidz >= depthA) return;
 
-    A   += gidz * rowsA * colsA;
-    trA += gidz * rowsA * colsA;
+    T *A   = &origA[gidz * rowsA * colsA];
+    T *trA = &origTrA[gidz * rowsA * colsA];
 
     // follows code for matrix transp in x & y
     int tidx = threadIdx.x,
@@ -490,7 +491,7 @@ __global__ void sgmMatTranspose(T *A, T *trA, int rowsA, int colsA, int depthA) 
         i = blockIdx.y * TILE + tidy;
 
     if (j < colsA && i < rowsA) {
-        tile[tidy][tidx] = A[i * colsA + j];
+        tile[tidz][tidy][tidx] = A[IDX2(rowsA,colsA, i,j)];
     }
     __syncthreads();
 
@@ -498,7 +499,7 @@ __global__ void sgmMatTranspose(T *A, T *trA, int rowsA, int colsA, int depthA) 
     j = blockIdx.x * TILE + tidy;
 
     if (j < colsA && i < rowsA) {
-        trA[j * rowsA + i] = tile[tidx][tidy];
+        trA[IDX2(colsA,rowsA, j,i)] = tile[tidz][tidx][tidy];
     }
 }
 
@@ -514,24 +515,24 @@ __global__ void simple3dTranspose(REAL *A, REAL *trA, int rowsA, int colsA, int 
     trA[IDX3(rowsA, depthA, colsA, gidx, gidz, gidy)] = A[IDX3(rowsA, colsA, depthA, gidx, gidy, gidz)];
 }
 
-void transpose3d( REAL*             inp_d,  
-                REAL*             out_d, 
-                const unsigned int height, 
+void transpose3d( REAL*             inp_d,
+                REAL*             out_d,
+                const unsigned int height,
                 const unsigned int width,
                 const unsigned int depth
 ) {
-    const int tile = 8;
+   const int tile = 8;
    // 1. setup block and grid parameters
-   int  dimx = ceil( ((REAL)height)/tile ); 
+   int  dimx = ceil( ((REAL)height)/tile );
    int  dimy = ceil( ((REAL) width)/tile );
    int  dimz = ceil( ((REAL) depth)/tile );
    dim3 block(tile, tile, tile);
-   //dim3 grid (dimz, dimy, dimx);
+   //dim3 grid (dimz, dimx, dimy);
    dim3 grid (dimx, dimy, dimz);
- 
+
    //2. execute the kernel
-   simple3dTranspose<<< grid, block >>>(inp_d, out_d, height, width, depth);    
-   //sgmMatTranspose<REAL,32><<<grid,block>>>(inp_d, out_d, depth, width, height);
+   simple3dTranspose<<< grid, block >>>(inp_d, out_d, height, width, depth);
+   //sgmMatTranspose<REAL,tile><<<grid,block>>>(inp_d, out_d, width, depth, height);
    cudaThreadSynchronize();
 }
 
