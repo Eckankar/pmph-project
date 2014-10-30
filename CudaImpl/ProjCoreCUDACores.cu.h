@@ -246,30 +246,31 @@ void rollback_explicit_y_kernel(
         REAL *myDyy,
         REAL *myResult
 ) {
-    unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
-    unsigned int tid_y     = blockIdx.y*blockDim.y + threadIdx.y;
+    unsigned int tid_y = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_x = blockIdx.y*blockDim.y + threadIdx.y;
 
-    if (tid_outer >= outer || tid_y >= numY)
+    if (tid_y >= numY || tid_x >= numX)
         return;
 
-    for(int i=0; i < numX; i++) {
-        REAL *myv = &v[IDX3(outer,numX,numY, tid_outer,i,tid_y)];
-        REAL mymyVarY = myVarY[IDX2(numX,numY, i,tid_y)];
+
+    for(int i=0; i < outer; i++) {
+        REAL *myv = &v[IDX3(outer,numX,numY, i,tid_x,tid_y)];
+        REAL mymyVarY = myVarY[IDX2(numX,numY, tid_x,tid_y)];
 
         *myv = 0.0;
 
         if(tid_y > 0) {
-            *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(numY,4, tid_y,0)] )
-                        * myResult[IDX3(outer,numX,numY, tid_outer,i,tid_y-1)];
+            *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 0,tid_y)] )
+                        * myResult[IDX3(outer,numX,numY, i,tid_x,tid_y-1)];
         }
-        *myv  +=  0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(numY,4, tid_y,1)] )
-                        * myResult[IDX3(outer,numX,numY, tid_outer,i,tid_y)];
+        *myv  +=  0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 1,tid_y)] )
+                        * myResult[IDX3(outer,numX,numY, i,tid_x,tid_y)];
         if(tid_y < numY-1) {
-            *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(numY,4, tid_y,2)] )
-                        * myResult[IDX3(outer,numX,numY, tid_outer,i,tid_y+1)];
+            *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 2,tid_y)] )
+                        * myResult[IDX3(outer,numX,numY, i,tid_x,tid_y+1)];
         }
 
-        u[IDX3(outer,numY,numX, tid_outer,tid_y,i)] += *myv;
+        u[IDX3(outer,numY,numX, i,tid_x,tid_y)] += *myv;
     }
 }
 

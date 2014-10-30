@@ -313,11 +313,11 @@ void   run_cuda(
         rollback_explicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numT, j, u_t_d, myTimeline_d,
                                                  myVarX_d, myDxx_t_d, myResult_d); // 2D
 
+        rollback_explicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, u_t_d, v_d, myTimeline_d,
+                                                 myVarY_d, myDyy_t_d, myResult_d); // 2D
         transpose3d(u_t_d, u_d, outer, numX, numY);
 
 
-        rollback_explicit_y_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, u_d, v_d, myTimeline_d,
-                                                 myVarY_d, myDyy_d, myResult_d); // 2D
 
         rollback_implicit_x_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, numZ, numT, j, myTimeline_d,
                                                  myVarX_d, myDxx_d, u_d, a_d, b_d, c_d, d_d,
