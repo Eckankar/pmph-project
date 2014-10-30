@@ -266,7 +266,7 @@ void rollback_explicit_y_kernel(
                         * myResult[IDX3(outer,numX,numY, i,tid_x,tid_y+1)];
         }
 
-        u[IDX3(outer,numY,numX, i,tid_x,tid_y)] += *myv;
+        u[IDX3(outer,numX,numY, i,tid_x,tid_y)] += *myv;
     }
 }
 
