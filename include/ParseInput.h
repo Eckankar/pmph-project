@@ -107,16 +107,16 @@ REAL* readOutput( const int& N ) {
     return result;
 }
 
-bool validate( const REAL* res, const int& N ) {
+bool validate( const REAL* res, const int& N, const REAL eps ) {
     bool  is_valid = true;
     
     REAL* std_res = readOutput( N );
 
     for ( int i = 0; i < N; i ++ ) {
         float err = fabs(std_res[i] - res[i]);
-        if ( isnan(res[i]) || isinf(res[i]) || err > EPS ) {
+        if ( isnan(res[i]) || isinf(res[i]) || err > eps ) {
             is_valid = false;
-            fprintf(stderr, "Error[%d] = %f, EPS = %f!\n", i, err, EPS);
+            fprintf(stderr, "Error[%d] = %f, EPS = %f!\n", i, err, eps);
             break;
         }
     }

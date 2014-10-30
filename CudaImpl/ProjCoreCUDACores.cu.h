@@ -72,7 +72,6 @@ void updateParams_large_kernel(
         const REAL alpha,
         const REAL beta,
         const REAL nu,
-        unsigned int max_outer,
         unsigned int numX,
         unsigned int numY,
         unsigned int numT,
@@ -82,27 +81,25 @@ void updateParams_large_kernel(
         REAL *myVarY,
         REAL *myTimeline
 ) {
-    unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
-    unsigned int tid_x     = blockIdx.y*blockDim.y + threadIdx.y;
+    unsigned int tid_x = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_y = blockIdx.y*blockDim.y + threadIdx.y;
 
-    if (tid_outer >= max_outer || tid_x >= numX)
+    if (tid_x >= numX || tid_y >= numY)
         return;
 
-    for (unsigned j = 0; j < numY; ++j) {
-        REAL x        = myX[tid_x],
-             y        = myY[j],
-             timeline = myTimeline[g];
+    REAL x        = myX[tid_x],
+         y        = myY[tid_y],
+         timeline = myTimeline[g];
 
-        myVarX[IDX3(max_outer, numX, numY, tid_outer, tid_x, j)]
-            = exp(2.0 * (beta * log(x) + y - 0.5*nu*nu*timeline));
+    myVarX[IDX2(numX,numY, tid_x,tid_y)]
+        = exp(2.0 * (beta * log(x) + y - 0.5*nu*nu*timeline));
 
-        myVarY[IDX3(max_outer, numX, numY, tid_outer, tid_x, j)]
-            = exp(2.0 * (alpha * log(x) + y - 0.5*nu*nu*timeline));
+    myVarY[IDX2(numX,numY, tid_x,tid_y)]
+        = exp(2.0 * (alpha * log(x) + y - 0.5*nu*nu*timeline));
 
-        if (tid_outer == 20 && tid_x == 52 && j == 253) {
-            printf("cuda: %.10f %.10f %.10f\n", x, y, timeline);
-            printf("cuda: %.10f %.10f\n", log(x), myVarY[IDX3(max_outer, numX, numY, tid_outer, tid_x, j)]);
-        }
+    if (tid_x == 52 && tid_y == 253 && g == numT-2) {
+        printf("cuda: %.10f %.10f %.10f\n", x, y, timeline);
+        printf("cuda: %.10f %.10f\n", log(x), myVarY[IDX2(numX,numY, tid_x,tid_y)]);
     }
 }
 
@@ -219,7 +216,7 @@ void rollback_explicit_x_kernel(
 
     for(int j=0; j < numY; j++) {
         REAL *myu = &u[IDX3(outer,numY,numX, tid_outer,j,tid_x)];
-        REAL mymyVarX = myVarX[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
+        REAL mymyVarX = myVarX[IDX2(numX,numY, tid_x,j)];
 
         *myu = dtInv*myResult[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
 
@@ -256,7 +253,7 @@ void rollback_explicit_y_kernel(
 
     for(int i=0; i < numX; i++) {
         REAL *myv = &v[IDX3(outer,numX,numY, tid_outer,i,tid_y)];
-        REAL mymyVarY = myVarY[IDX3(outer,numX,numY, tid_outer,i,tid_y)];
+        REAL mymyVarY = myVarY[IDX2(numX,numY, i,tid_y)];
 
         *myv = 0.0;
 
@@ -308,7 +305,7 @@ void rollback_implicit_x_kernel(
     REAL dtInv = 1.0/(myTimeline[g+1] - myTimeline[g]);
 
     for(int i=0; i < numX; i++) {  // here a, b,c should have size [numX]
-        REAL mymyVarX = myVarX[IDX3(outer,numX,numY, tid_outer,i,tid_y)];
+        REAL mymyVarX = myVarX[IDX2(numX,numY, i,tid_y)];
 
         myA[i] =       - 0.5 * (0.5 * mymyVarX * myDxx[IDX2(numX,4, i,0)]);
         myB[i] = dtInv - 0.5 * (0.5 * mymyVarX * myDxx[IDX2(numX,4, i,1)]);
@@ -354,7 +351,7 @@ void rollback_implicit_y_kernel(
     REAL dtInv = 1.0/(myTimeline[g+1] - myTimeline[g]);
 
     for(int j=0; j < numY; j++) {  // here a, b,c should have size [numX]
-        REAL mymyVarY = myVarY[IDX3(outer,numX,numY, tid_outer,tid_x,j)];
+        REAL mymyVarY = myVarY[IDX2(numX,numY, tid_x,j)];
 
         myA[j] =       - 0.5 * (0.5 * mymyVarY * myDyy[IDX2(numY,4, j,0)]);
         myB[j] = dtInv - 0.5 * (0.5 * mymyVarY * myDyy[IDX2(numY,4, j,1)]);

@@ -27,9 +27,15 @@ int main()
         elapsed = t_diff.tv_sec*1e6+t_diff.tv_usec;
 
         // validation and writeback of the result
-        bool is_valid = validate   ( res, OUTER_LOOP_COUNT );
+        bool is_valid = validate   ( res, OUTER_LOOP_COUNT, EPS );
         writeStatsAndResult( is_valid, res, OUTER_LOOP_COUNT,
-                             NUM_X, NUM_Y, NUM_T, false, 1/*Ps*/, elapsed );
+                             NUM_X, NUM_Y, NUM_T, true, 1/*Ps*/, elapsed );
+
+        printf("Now with EPS = EPS * 10\n");
+        is_valid = validate   ( res, OUTER_LOOP_COUNT, EPS*10 );
+        printf("validated\n");
+        writeStatsAndResult( is_valid, res, OUTER_LOOP_COUNT,
+                             NUM_X, NUM_Y, NUM_T, true, 1/*Ps*/, elapsed );
     }
 
     return 0;

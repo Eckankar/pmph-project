@@ -21,13 +21,13 @@ $(EXECUTABLE): $(OBJECTS)
 
 
 run_small: $(EXECUTABLE)
-	cat ../Data/Small/input.data ../Data/Small/output.data | ./$(EXECUTABLE) 2> Debug.txt
+	cat ../Data/Small/input.data ../Data/Small/output.data ../Data/Small/output.data | ./$(EXECUTABLE) 2> Debug.txt
 
 run_medium: $(EXECUTABLE)
-	cat ../Data/Medium/input.data ../Data/Medium/output.data | ./$(EXECUTABLE) 2> Debug.txt
+	cat ../Data/Medium/input.data ../Data/Medium/output.data ../Data/Medium/output.data | ./$(EXECUTABLE) 2> Debug.txt
 
 run_large: $(EXECUTABLE)
-	cat ../Data/Large/input.data ../Data/Large/output.data | ./$(EXECUTABLE) 2> Debug.txt
+	cat ../Data/Large/input.data ../Data/Large/output.data ../Data/Large/output.data | ./$(EXECUTABLE) 2> Debug.txt
 
 clean:
 	rm -f Debug.txt $(EXECUTABLE) $(OBJECTS)

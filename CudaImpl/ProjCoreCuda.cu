@@ -147,8 +147,8 @@ void   run_cuda(
     CudaSafeCall( cudaMalloc((void **) &myDxx_d,      numX * 4 * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myDyy_d,      numY * 4 * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myResult_d,   outer * numX * numY * sizeof(REAL)) );
-    CudaSafeCall( cudaMalloc((void **) &myVarX_d,     outer * numX * numY * sizeof(REAL)) );
-    CudaSafeCall( cudaMalloc((void **) &myVarY_d,     outer * numX * numY * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myVarX_d,     numX * numY * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myVarY_d,     numX * numY * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &res_d,        outer * sizeof(REAL)) );
 
     const dim3 block_size2 = dim3(32, 32);
@@ -265,34 +265,35 @@ void   run_cuda(
 
 
     for (int j = numT-2; j>=0; --j) {
-        updateParams_large_kernel<<<GRID(outer, numX), block_size2>>>(j, alpha, beta, nu, outer, numX, numY,
+        cudaDeviceSynchronize();
+        printf("time step %d\n", j);
+
+        updateParams_large_kernel<<<GRID(numX, numY), block_size2>>>(j, alpha, beta, nu, numX, numY,
                                                 numT, myX_d, myY_d, myVarX_d, myVarY_d, myTimeline_d); // 2D
 
         if (j == numT-2) {
             REAL *myVarX, *myVarY;
-            myVarX = (REAL*) malloc(outer * numX * numY * sizeof(REAL));
-            myVarY = (REAL*) malloc(outer * numX * numY * sizeof(REAL));
-            cudaMemcpy(myVarX, myVarX_d, outer * numX * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
-            cudaMemcpy(myVarY, myVarY_d, outer * numX * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
+            myVarX = (REAL*) malloc(numX * numY * sizeof(REAL));
+            myVarY = (REAL*) malloc(numX * numY * sizeof(REAL));
+            cudaMemcpy(myVarX, myVarX_d, numX * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
+            cudaMemcpy(myVarY, myVarY_d, numX * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
             CudaCheckError();
 
             updateParams(j, alpha, beta, nu, globs);
 
-            for (int o = 50; o < 51; ++o) {
             for (int x = 52; x < 53; ++x) {
             for (int y = 253; y < 254; ++y) {
                 REAL x1 = globs.myVarX[x][y];
-                REAL x2 = myVarX[IDX3(outer,numX,numY, o,x,y)];
+                REAL x2 = myVarX[IDX2(numX,numY, x,y)];
                 if (abs(x1-x2) >= 1e-7) {
-                    printf("myVarX(%d,%d,%d), %.14f, %.14f, %.14f\n", o, x, y, abs(x1-x2), x1, x2);
+                    printf("myVarX(%d,%d), %.14f, %.14f, %.14f\n", x, y, abs(x1-x2), x1, x2);
                 }
 
                 x1 = globs.myVarY[x][y];
-                x2 = myVarY[IDX3(outer,numX,numY, o,x,y)];
+                x2 = myVarY[IDX2(numX,numY, x,y)];
                 if (abs(x1-x2) >= 1e-7) {
-                    printf("myVarY(%d,%d,%d), %.14f, %.14f, %.14f\n", o, x, y, abs(x1-x2), x1, x2);
+                    printf("myVarY(%d,%d), %.14f, %.14f, %.14f\n", x, y, abs(x1-x2), x1, x2);
                 }
-            }
             }
             }
 
@@ -314,8 +315,12 @@ void   run_cuda(
                                                  b_d, c_d, y_d, yy_d); // 2D
     }
 
+    printf("pre-res\n");
     res_kernel<<<ceil((REAL)outer/block_size), block_size>>>(res_d, myResult_d, outer, numX, numY, myXindex, myYindex);
+    cudaDeviceSynchronize();
+    printf("post-res\n");
     cudaMemcpy(res, res_d, outer * sizeof(REAL), cudaMemcpyDeviceToHost);
+    printf("post-memcpy\n");
 
     // XXX: free everything maybe
 }
