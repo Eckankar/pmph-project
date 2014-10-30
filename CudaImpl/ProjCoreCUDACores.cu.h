@@ -81,8 +81,8 @@ void updateParams_large_kernel(
         REAL *myVarY,
         REAL *myTimeline
 ) {
-    unsigned int tid_x = blockIdx.x*blockDim.x + threadIdx.x;
-    unsigned int tid_y = blockIdx.y*blockDim.y + threadIdx.y;
+    unsigned int tid_y = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_x = blockIdx.y*blockDim.y + threadIdx.y;
 
     if (tid_x >= numX || tid_y >= numY)
         return;
@@ -142,36 +142,37 @@ void initOperator_kernel(REAL *x, REAL *Dxx, const unsigned numX) {
         return;
 
     if (tid_x == 0 || tid_x == numX-1) {
-        Dxx[IDX2(numX,4, tid_x,0)] =  0.0;
-        Dxx[IDX2(numX,4, tid_x,1)] =  0.0;
-        Dxx[IDX2(numX,4, tid_x,2)] =  0.0;
-        Dxx[IDX2(numX,4, tid_x,3)] =  0.0;
+        Dxx[IDX2(4,numX, 0,tid_x)] =  0.0;
+        Dxx[IDX2(4,numX, 1,tid_x)] =  0.0;
+        Dxx[IDX2(4,numX, 2,tid_x)] =  0.0;
+        Dxx[IDX2(4,numX, 3,tid_x)] =  0.0;
     } else {
         REAL dxl = x[tid_x] - x[tid_x-1];
         REAL dxu = x[tid_x+1] - x[tid_x];
 
-        Dxx[IDX2(numX,4, tid_x,0)] =  2.0/dxl/(dxl+dxu);
-        Dxx[IDX2(numX,4, tid_x,1)] = -2.0*(1.0/dxl + 1.0/dxu)/(dxl+dxu);
-        Dxx[IDX2(numX,4, tid_x,2)] =  2.0/dxu/(dxl+dxu);
-        Dxx[IDX2(numX,4, tid_x,3)] =  0.0;
+        Dxx[IDX2(4,numX, 0,tid_x)] =  2.0/dxl/(dxl+dxu);
+        Dxx[IDX2(4,numX, 1,tid_x)] = -2.0*(1.0/dxl + 1.0/dxu)/(dxl+dxu);
+        Dxx[IDX2(4,numX, 2,tid_x)] =  2.0/dxu/(dxl+dxu);
+        Dxx[IDX2(4,numX, 3,tid_x)] =  0.0;
     }
 }
 
 __global__
 void setPayoff_kernel(REAL *myX, REAL *myY, REAL *myResult, const unsigned numX, const unsigned numY, const unsigned outer)
 {
-    unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
-    unsigned int tid_x     = blockIdx.y*blockDim.y + threadIdx.y;
+    unsigned int tid_y = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_x = blockIdx.y*blockDim.y + threadIdx.y;
 
-    if (tid_outer >= outer || tid_x >= numX)
+    if (tid_x >= numX || tid_y >= numY)
         return;
 
-    REAL strike;
-    strike = 0.001*tid_outer;
+    REAL x = myX[tid_x];
 
-    REAL payoff = max(myX[tid_x]-strike, (REAL)0.0);
-    for (unsigned j=0; j < numY; ++j) {
-        myResult[IDX3(outer, numX, numY, tid_outer, tid_x, j)] = payoff;
+    for (unsigned j=0; j < outer; ++j) {
+        REAL strike = 0.001*j;
+        REAL payoff = max(x-strike, (REAL)0.0);
+
+        myResult[IDX3(outer, numX, numY, j, tid_x, tid_y)] = payoff;
     }
 }
 

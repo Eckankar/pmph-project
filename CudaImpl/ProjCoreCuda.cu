@@ -151,6 +151,10 @@ void   run_cuda(
     CudaSafeCall( cudaMalloc((void **) &myVarY_d,     numX * numY * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &res_d,        outer * sizeof(REAL)) );
 
+    // Allocate transposed resources
+    REAL *myDxx_t_d, *myDyy_t_d;
+    CudaSafeCall( cudaMalloc((void **) &myDxx_t_d,      numX * 4 * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myDyy_t_d,      numY * 4 * sizeof(REAL)) );
     const dim3 block_size2 = dim3(32, 32);
     const dim3 block_size3 = dim3(8, 8, 8);
     const int block_size   = block_size2.x * block_size2.y * block_size2.z;
@@ -200,8 +204,14 @@ void   run_cuda(
     initOperator(globs.myX,globs.myDxx);
     initOperator(globs.myY,globs.myDyy);
 
-    initOperator_kernel<<<ceil((REAL)numX/block_size), block_size>>>(myX_d, myDxx_d, numX); // 1D
+    initOperator_kernel<<<ceil((REAL)numX/block_size), block_size>>>(myX_d, myDxx_t_d, numX); // 1D
     CudaCheckError();
+
+    initOperator_kernel<<<ceil((REAL)numY/block_size), block_size>>>(myY_d, myDyy_t_d, numY); // 1D
+    CudaCheckError();
+
+    transpose<REAL,32>(myDxx_t_d, myDxx_d, 4, numX);
+    transpose<REAL,32>(myDyy_t_d, myDyy_d, 4, numY);
 
     REAL *myDxx;
     myDxx = (REAL*) malloc(numX * 4 * sizeof(REAL));
@@ -220,11 +230,7 @@ void   run_cuda(
 
     printf("Initoperator checked.\n");
 
-
-    initOperator_kernel<<<ceil((REAL)numY/block_size), block_size>>>(myY_d, myDyy_d, numY); // 1D
-    CudaCheckError();
-
-    setPayoff_kernel<<<GRID(outer, numX), block_size2>>>(myX_d, myY_d, myResult_d, numX, numY, outer); // 2D
+    setPayoff_kernel<<<GRID(numY, numX), block_size2>>>(myX_d, myY_d, myResult_d, numX, numY, outer); // 2D
 
     REAL *myResult;
     myResult = (REAL*) malloc(outer * numX * numY * sizeof(REAL));
@@ -268,7 +274,7 @@ void   run_cuda(
         cudaDeviceSynchronize();
         printf("time step %d\n", j);
 
-        updateParams_large_kernel<<<GRID(numX, numY), block_size2>>>(j, alpha, beta, nu, numX, numY,
+        updateParams_large_kernel<<<GRID(numY, numX), block_size2>>>(j, alpha, beta, nu, numX, numY,
                                                 numT, myX_d, myY_d, myVarX_d, myVarY_d, myTimeline_d); // 2D
 
         if (j == numT-2) {
