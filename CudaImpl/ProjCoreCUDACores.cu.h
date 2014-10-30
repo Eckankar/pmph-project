@@ -98,6 +98,11 @@ void updateParams_large_kernel(
 
         myVarY[IDX3(max_outer, numX, numY, tid_outer, tid_x, j)]
             = exp(2.0 * (alpha * log(x) + y - 0.5*nu*nu*timeline));
+
+        if (tid_outer == 20 && tid_x == 52 && j == 253) {
+            printf("cuda: %.10f %.10f %.10f\n", x, y, timeline);
+            printf("cuda: %.10f %.10f\n", log(x), myVarY[IDX3(max_outer, numX, numY, tid_outer, tid_x, j)]);
+        }
     }
 }
 

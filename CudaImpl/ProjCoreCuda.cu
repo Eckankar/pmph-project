@@ -59,6 +59,11 @@ void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REA
                                           + globs.myY[j]
                                           - 0.5*nu*nu*globs.myTimeline[g] )
                                     ); // nu*nu
+            if (i == 52 && j == 253) {
+                printf("non-cuda: %.10f %.10f %.10f\n", globs.myX[i], globs.myY[j], globs.myTimeline[g]);
+                printf("non-cuda: %.10f %.10f\n", log(globs.myX[i]), globs.myVarY[i][j]);
+
+            }
         }
 }
 
@@ -171,12 +176,14 @@ void   run_cuda(
     PrivGlobs globs(numX, numY, numT);
     initGrid(s0, alpha, nu, t, numX, numY, numT, globs);
 
-    REAL *myX, *myY;
+    REAL *myX, *myY, *myTimeline;
     myX = (REAL*) malloc(outer * numX * sizeof(REAL));
     myY = (REAL*) malloc(outer * numY * sizeof(REAL));
+    myTimeline = (REAL*) malloc(outer * numT * sizeof(REAL));
 
     cudaMemcpy(myX, myX_d, outer * numX * sizeof(REAL), cudaMemcpyDeviceToHost);
     cudaMemcpy(myY, myY_d, outer * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
+    cudaMemcpy(myTimeline, myTimeline_d, outer * numT * sizeof(REAL), cudaMemcpyDeviceToHost);
 
     for (int o = 0; o < outer; ++o) {
         for (int x = 0; x < numX; ++x) {
@@ -194,8 +201,12 @@ void   run_cuda(
     for (int i = 0; i < numY; i++) {
         globs.myY[i] = myY[IDX2(outer,numY, 0,i)];
     }
+    for (int i = 0; i < numT; i++) {
+        globs.myTimeline[i] = myTimeline[IDX2(outer,numT, 0,i)];
+    }
 
     initOperator(globs.myX,globs.myDxx);
+    initOperator(globs.myY,globs.myDyy);
 
     initOperator_kernel<<<ceil((REAL)outer/block_size), block_size>>>(myX_d, myDxx_d, outer, numX); // 1D
     CudaCheckError();
@@ -266,6 +277,37 @@ void   run_cuda(
     for (int j = numT-2; j>=0; --j) {
         updateParams_large_kernel<<<GRID(outer, numX), block_size2>>>(j, alpha, beta, nu, outer, numX, numY,
                                                 numT, myX_d, myY_d, myVarX_d, myVarY_d, myTimeline_d); // 2D
+
+        if (j == numT-2) {
+            REAL *myVarX, *myVarY;
+            myVarX = (REAL*) malloc(outer * numX * numY * sizeof(REAL));
+            myVarY = (REAL*) malloc(outer * numX * numY * sizeof(REAL));
+            cudaMemcpy(myVarX, myVarX_d, outer * numX * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
+            cudaMemcpy(myVarY, myVarY_d, outer * numX * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
+            CudaCheckError();
+
+            updateParams(j, alpha, beta, nu, globs);
+
+            for (int o = 50; o < 51; ++o) {
+            for (int x = 52; x < 53; ++x) {
+            for (int y = 253; y < 254; ++y) {
+                REAL x1 = globs.myVarX[x][y];
+                REAL x2 = myVarX[IDX3(outer,numX,numY, o,x,y)];
+                if (abs(x1-x2) >= 1e-7) {
+                    printf("myVarX(%d,%d,%d), %.14f, %.14f, %.14f\n", o, x, y, abs(x1-x2), x1, x2);
+                }
+
+                x1 = globs.myVarY[x][y];
+                x2 = myVarY[IDX3(outer,numX,numY, o,x,y)];
+                if (abs(x1-x2) >= 1e-7) {
+                    printf("myVarY(%d,%d,%d), %.14f, %.14f, %.14f\n", o, x, y, abs(x1-x2), x1, x2);
+                }
+            }
+            }
+            }
+
+            printf("updateParams checked.\n");
+        }
 
         rollback_explicit_x_kernel<<<GRID(outer, numX), block_size2>>>(outer, numX, numY, numT, j, u_d, myTimeline_d,
                                                  myVarX_d, myDxx_d, myResult_d); // 2D

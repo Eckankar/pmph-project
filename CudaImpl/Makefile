@@ -1,6 +1,6 @@
 CXX        = nvcc
 LIB        =
-CXXFLAGS   = -O3 -arch=sm_20 -DWITH_FLOATS=1 -I ../include -D lgWARP5
+CXXFLAGS   = -O3 -arch=sm_20 -DWITH_FLOATS=0 -I ../include -D lgWARP5
 
 SOURCES_CPP = ProjectMain.cu ProjHelperFun.cu ProjCoreCuda.cu 
 HELPERS     = ProjHelperFun.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h ../include/CudaUtilProj.cu.h ProjCoreCUDACores.cu.h
