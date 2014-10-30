@@ -260,7 +260,7 @@ void   run_cuda(
     //REAL y[outer][numZ][numZ];
     //REAL yy[outer][numZ][numZ];
 
-    REAL *u_d, *v_d, *a_d, *b_d, *c_d, *d_d, *y_d, *yy_d;
+    REAL *u_d, *v_d, *a_d, *b_d, *c_d, *y_d, *yy_d;
     CudaSafeCall( cudaMalloc((void **) &u_d,     outer * numY * numX * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &v_d,     outer * numX * numY * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &a_d,     outer * numZ * numZ * sizeof(REAL)) );
@@ -270,8 +270,11 @@ void   run_cuda(
     CudaSafeCall( cudaMalloc((void **) &yy_d,    outer * numZ * numZ * sizeof(REAL)) );
 
     // Transposed
-    REAL *u_t_d;
+    REAL *u_t_d, *a_t_d, *b_t_d, *c_t_d;
     CudaSafeCall( cudaMalloc((void **) &u_t_d,     outer * numY * numX * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &a_t_d,     outer * numZ * numZ * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &b_t_d,     outer * numZ * numZ * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &c_t_d,     outer * numZ * numZ * sizeof(REAL)) );
 
 
     for (int j = numT-2; j>=0; --j) {
@@ -310,18 +313,22 @@ void   run_cuda(
             printf("updateParams checked.\n");
         }
 
-        rollback_explicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numT, j, u_t_d, myTimeline_d,
-                                                 myVarX_d, myDxx_t_d, myResult_d); // 2D
+        rollback_explicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numT, j, u_t_d,
+                myTimeline_d, myVarX_d, myDxx_t_d, myResult_d); // 2D
 
-        rollback_explicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, u_t_d, v_d, myTimeline_d,
-                                                 myVarY_d, myDyy_t_d, myResult_d); // 2D
+        rollback_explicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, u_t_d, v_d,
+                myTimeline_d, myVarY_d, myDyy_t_d, myResult_d); // 2D
         transpose3d(u_t_d, u_d, outer, numX, numY);
 
+        rollback_implicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, numT, j,
+                        myTimeline_d, myVarX_d, myDxx_t_d, a_t_d, b_t_d, c_t_d);
 
+        transpose3d(a_t_d, a_d, outer, numZ, numZ);
+        transpose3d(b_t_d, b_d, outer, numZ, numZ);
+        transpose3d(c_t_d, c_d, outer, numZ, numZ);
 
-        rollback_implicit_x_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, numZ, numT, j, myTimeline_d,
-                                                 myVarX_d, myDxx_d, u_d, a_d, b_d, c_d, d_d,
-                                                 yy_d); // 2D
+        rollback_implicit_x_part2_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, numZ, u_d,
+                a_d, b_d, c_d, yy_d); // 2D
 
         rollback_implicit_y_kernel<<<GRID(outer, numX), block_size2>>>(outer, numX, numY, numZ, numT, j, myTimeline_d,
                                                  myVarY_d, myDyy_d, myResult_d, u_d, v_d, a_d,
