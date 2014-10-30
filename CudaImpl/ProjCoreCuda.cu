@@ -192,6 +192,8 @@ void   run_cuda(
     const REAL logAlpha = log(alpha);
     myYindex = static_cast<unsigned>(numY/2.0);
 
+    unsigned int numZ = max(numX, numY);
+
     // Allocate CUDA resources
     REAL *myX_d, *myY_d, *myTimeline_d, *myDxx_d, *myDyy_d, *myResult_d, *myVarX_d, *myVarY_d, *res_d;
     CudaSafeCall( cudaMalloc((void **) &myX_d,        numX * sizeof(REAL)) );
@@ -199,15 +201,16 @@ void   run_cuda(
     CudaSafeCall( cudaMalloc((void **) &myTimeline_d, numT * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myDxx_d,      numX * 4 * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myDyy_d,      numY * 4 * sizeof(REAL)) );
-    CudaSafeCall( cudaMalloc((void **) &myResult_d,   outer * numX * numY * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myResult_d,   outer * numZ * numZ * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myVarX_d,     numX * numY * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myVarY_d,     numX * numY * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &res_d,        outer * sizeof(REAL)) );
 
     // Allocate transposed resources
-    REAL *myDxx_t_d, *myDyy_t_d;
+    REAL *myDxx_t_d, *myDyy_t_d, *myResult_t_d;
     CudaSafeCall( cudaMalloc((void **) &myDxx_t_d,      numX * 4 * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myDyy_t_d,      numY * 4 * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myResult_t_d,   outer * numZ * numZ * sizeof(REAL)) );
     const dim3 block_size2 = dim3(32, 32);
     const dim3 block_size3 = dim3(8, 8, 8);
     const int block_size   = block_size2.x * block_size2.y * block_size2.z;
@@ -287,7 +290,7 @@ void   run_cuda(
     printf("Initoperator checked.\n");
 #endif
 
-    setPayoff_kernel<<<GRID(numY, numX), block_size2>>>(myX_d, myY_d, myResult_d, numX, numY, outer); // 2D
+    setPayoff_kernel<<<GRID(numY, numX), block_size2>>>(myX_d, myY_d, myResult_d, numX, numY, numZ, outer); // 2D
 
 #if DO_DEBUG
     REAL *myResult;
@@ -310,7 +313,6 @@ void   run_cuda(
 #endif
 
     // stuff
-    unsigned int numZ = max(numX, numY);
    //REAL u[outer][numY][numX];
     //REAL v[outer][numX][numY];
     //REAL a[outer][numZ][numZ];
@@ -320,8 +322,8 @@ void   run_cuda(
     //REAL yy[outer][numZ][numZ];
 
     REAL *u_d, *v_d, *a_d, *b_d, *c_d, *y_d, *yy_d;
-    CudaSafeCall( cudaMalloc((void **) &u_d,     outer * numY * numX * sizeof(REAL)) );
-    CudaSafeCall( cudaMalloc((void **) &v_d,     outer * numX * numY * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &u_d,     outer * numZ * numZ * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &v_d,     outer * numZ * numZ * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &a_d,     outer * numZ * numZ * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &b_d,     outer * numZ * numZ * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &c_d,     outer * numZ * numZ * sizeof(REAL)) );
@@ -329,11 +331,12 @@ void   run_cuda(
     CudaSafeCall( cudaMalloc((void **) &yy_d,    outer * numZ * numZ * sizeof(REAL)) );
 
     // Transposed
-    REAL *u_t_d, *a_t_d, *b_t_d, *c_t_d;
-    CudaSafeCall( cudaMalloc((void **) &u_t_d,     outer * numY * numX * sizeof(REAL)) );
+    REAL *u_t_d, *a_t_d, *b_t_d, *c_t_d, *y_t_d;
+    CudaSafeCall( cudaMalloc((void **) &u_t_d,     outer * numZ * numZ * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &a_t_d,     outer * numZ * numZ * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &b_t_d,     outer * numZ * numZ * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &c_t_d,     outer * numZ * numZ * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &y_t_d,     outer * numZ * numZ * sizeof(REAL)) );
 
 
     for (int j = numT-2; j>=0; --j) {
@@ -376,10 +379,10 @@ void   run_cuda(
         }
 #endif
 
-        rollback_explicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numT, j, u_t_d,
+        rollback_explicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numT, numZ, j, u_t_d,
                 myTimeline_d, myVarX_d, myDxx_t_d, myResult_d); // 2D
 
-        rollback_explicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, u_t_d, v_d,
+        rollback_explicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, u_t_d, v_d,
                 myTimeline_d, myVarY_d, myDyy_t_d, myResult_d); // 2D
         cudaDeviceSynchronize();
         printf("pre-first transpose\n");
@@ -398,8 +401,8 @@ void   run_cuda(
         transpose3d(b_t_d, b_d, outer, numZ, numZ);
         transpose3d(c_t_d, c_d, outer, numZ, numZ);
 
-        rollback_implicit_x_part2_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, numZ, u_d,
-                a_d, b_d, c_d, yy_d); // 2D
+        rollback_implicit_x_part2_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, numZ, u_t_d,
+                a_t_d, b_t_d, c_t_d, yy_d); // 2D
 
         transpose3d(u_d, u_t_d, outer, numY, numX);
 
@@ -407,13 +410,17 @@ void   run_cuda(
         rollback_implicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, numT, j,
                 myTimeline_d, myVarY_d, myDyy_t_d, myResult_d, u_t_d, v_d, a_d, b_d, c_d, y_d); // 2D
 
+        transpose3d(myResult_d, myResult_t_d, outer, numZ, numZ);
+
         rollback_implicit_y_part2_kernel<<<GRID(outer, numX), block_size2>>>(outer, numX, numY, numZ, numT, j, myTimeline_d,
-                                                 myVarY_d, myDyy_d, myResult_d, u_d, v_d, a_d,
-                                                 b_d, c_d, y_d, yy_d); // 2D
+                                                 myVarY_d, myDyy_d, myResult_t_d, u_t_d, v_d, a_t_d,
+                                                 b_t_d, c_t_d, y_t_d, yy_d); // 2D
+
+        transpose3d(myResult_t_d, myResult_d, outer, numZ, numZ);
     }
 
     printf("pre-res\n");
-    res_kernel<<<ceil((REAL)outer/block_size), block_size>>>(res_d, myResult_d, outer, numX, numY, myXindex, myYindex);
+    res_kernel<<<ceil((REAL)outer/block_size), block_size>>>(res_d, myResult_d, outer, numX, numY, numZ, myXindex, myYindex);
     cudaDeviceSynchronize();
     printf("post-res\n");
     cudaMemcpy(res, res_d, outer * sizeof(REAL), cudaMemcpyDeviceToHost);

@@ -36,26 +36,27 @@ void tridag(
     const REAL   *r,   // size [n]
     const int             n,
           REAL   *u,   // size [n]
-          REAL   *uu   // size [n] temporary
+          REAL   *uu,   // size [n] temporary
+    const int stride
 ) {
     int    i, offset;
     REAL   beta;
 
-    u[0]  = r[0];
-    uu[0] = b[0];
+    u[0*stride]  = r[0*stride];
+    uu[0*stride] = b[0*stride];
 
     for(i=1; i<n; i++) {
-        beta  = a[i] / uu[i-1];
+        beta  = a[i*stride] / uu[(i-1)*stride];
 
-        uu[i] = b[i] - beta*c[i-1];
-        u[i]  = r[i] - beta*u[i-1];
+        uu[i*stride] = b[i*stride] - beta*c[(i-1)*stride];
+        u[i*stride]  = r[i*stride] - beta*u[(i-1)*stride];
     }
 
 #if 1
     // X) this is a backward recurrence
-    u[n-1] = u[n-1] / uu[n-1];
+    u[(n-1)*stride] = u[(n-1)*stride] / uu[(n-1)*stride];
     for(i=n-2; i>=0; i--) {
-        u[i] = (u[i] - c[i]*u[i+1]) / uu[i];
+        u[i*stride] = (u[i*stride] - c[i*stride]*u[(i+1)*stride]) / uu[i*stride];
     }
 #else
     // Hint: X) can be written smth like (once you make a non-constant)
@@ -154,7 +155,7 @@ void initOperator_kernel(REAL *x, REAL *Dxx, const unsigned numX) {
 }
 
 __global__
-void setPayoff_kernel(REAL *myX, REAL *myY, REAL *myResult, const unsigned numX, const unsigned numY, const unsigned outer)
+void setPayoff_kernel(REAL *myX, REAL *myY, REAL *myResult, const unsigned numX, const unsigned numY, const unsigned numZ, const unsigned outer)
 {
     unsigned int tid_y = blockIdx.x*blockDim.x + threadIdx.x;
     unsigned int tid_x = blockIdx.y*blockDim.y + threadIdx.y;
@@ -168,7 +169,7 @@ void setPayoff_kernel(REAL *myX, REAL *myY, REAL *myResult, const unsigned numX,
         REAL strike = 0.001*j;
         REAL payoff = max(x-strike, (REAL)0.0);
 
-        myResult[IDX3(outer, numX, numY, j, tid_x, tid_y)] = payoff;
+        myResult[IDX3(outer, numZ, numZ, j, tid_x, tid_y)] = payoff;
     }
 }
 
@@ -179,6 +180,7 @@ void res_kernel(
         const unsigned outer,
         const unsigned numX,
         const unsigned numY,
+        const unsigned numZ,
         unsigned int myXindex,
         unsigned int myYindex
 ) {
@@ -187,7 +189,7 @@ void res_kernel(
     if (tid_outer >= outer)
         return;
 
-    res[tid_outer] = myResult[IDX3(outer, numX, numY, tid_outer, myXindex, myYindex)];
+    res[tid_outer] = myResult[IDX3(outer, numZ, numZ, tid_outer, myXindex, myYindex)];
 }
 
 __global__
@@ -196,6 +198,7 @@ void rollback_explicit_x_kernel(
         const unsigned numX,
         const unsigned numY,
         const unsigned numT,
+        const unsigned numZ,
         const unsigned g,
         REAL *u,
         REAL *myTimeline,
@@ -213,19 +216,19 @@ void rollback_explicit_x_kernel(
     REAL mymyVarX = myVarX[IDX2(numX,numY, tid_x,tid_y)];
 
     for(int j=0; j < outer; j++) {
-        REAL *myu = &u[IDX3(outer,numX,numY, j,tid_x,tid_y)];
+        REAL *myu = &u[IDX3(outer,numZ,numZ, j,tid_x,tid_y)];
 
-        *myu = dtInv*myResult[IDX3(outer,numX,numY, j,tid_x,tid_y)];
+        *myu = dtInv*myResult[IDX3(outer,numZ,numZ, j,tid_x,tid_y)];
 
         if(tid_x > 0) {
             *myu += 0.5 * ( 0.5 * mymyVarX * myDxx[IDX2(4,numX, 0,tid_x)] )
-                        * myResult[IDX3(outer,numX,numY, j,tid_x-1,tid_y)];
+                        * myResult[IDX3(outer,numZ,numZ, j,tid_x-1,tid_y)];
         }
         *myu  +=  0.5 * ( 0.5 * mymyVarX * myDxx[IDX2(4,numX, 1,tid_x)] )
-                        * myResult[IDX3(outer,numX,numY, j,tid_x,tid_y)];
+                        * myResult[IDX3(outer,numZ,numZ, j,tid_x,tid_y)];
         if(tid_x < numX-1) {
             *myu += 0.5 * ( 0.5 * mymyVarX * myDxx[IDX2(4,numX, 2,tid_x)] )
-                        * myResult[IDX3(outer,numX,numY, j,tid_x+1,tid_y)];
+                        * myResult[IDX3(outer,numZ,numZ, j,tid_x+1,tid_y)];
         }
     }
 }
@@ -235,6 +238,7 @@ void rollback_explicit_y_kernel(
         const unsigned outer,
         const unsigned numX,
         const unsigned numY,
+        const unsigned numZ,
         REAL *u,
         REAL *v,
         REAL *myTimeline,
@@ -250,23 +254,23 @@ void rollback_explicit_y_kernel(
 
 
     for(int i=0; i < outer; i++) {
-        REAL *myv = &v[IDX3(outer,numX,numY, i,tid_x,tid_y)];
+        REAL *myv = &v[IDX3(outer,numZ,numZ, i,tid_x,tid_y)];
         REAL mymyVarY = myVarY[IDX2(numX,numY, tid_x,tid_y)];
 
         *myv = 0.0;
 
         if(tid_y > 0) {
             *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 0,tid_y)] )
-                        * myResult[IDX3(outer,numX,numY, i,tid_x,tid_y-1)];
+                        * myResult[IDX3(outer,numZ,numZ, i,tid_x,tid_y-1)];
         }
         *myv  +=  0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 1,tid_y)] )
-                        * myResult[IDX3(outer,numX,numY, i,tid_x,tid_y)];
+                        * myResult[IDX3(outer,numZ,numZ, i,tid_x,tid_y)];
         if(tid_y < numY-1) {
             *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 2,tid_y)] )
-                        * myResult[IDX3(outer,numX,numY, i,tid_x,tid_y+1)];
+                        * myResult[IDX3(outer,numZ,numZ, i,tid_x,tid_y+1)];
         }
 
-        u[IDX3(outer,numX,numY, i,tid_x,tid_y)] += *myv;
+        u[IDX3(outer,numZ,numZ, i,tid_x,tid_y)] += *myv;
     }
 }
 
@@ -327,14 +331,14 @@ void rollback_implicit_x_part2_kernel(
     if (tid_outer >= outer || tid_y >= numY)
         return;
 
-    REAL *myA  =  &a[IDX3(outer,numZ,numZ, tid_outer,tid_y,0)];
-    REAL *myB  =  &b[IDX3(outer,numZ,numZ, tid_outer,tid_y,0)];
-    REAL *myC  =  &c[IDX3(outer,numZ,numZ, tid_outer,tid_y,0)];
-    REAL *myYY = &yy[IDX3(outer,numZ,numZ, tid_outer,tid_y,0)];
-    REAL *myU  =  &u[IDX3(outer,numY,numX, tid_outer,tid_y,0)];
+    REAL *myA  =  &a[IDX3(outer,numZ,numZ, tid_outer,0,tid_y)];
+    REAL *myB  =  &b[IDX3(outer,numZ,numZ, tid_outer,0,tid_y)];
+    REAL *myC  =  &c[IDX3(outer,numZ,numZ, tid_outer,0,tid_y)];
+    REAL *myYY = &yy[IDX3(outer,numZ,numZ, tid_outer,0,tid_y)];
+    REAL *myU  =  &u[IDX3(outer,numZ,numZ, tid_outer,0,tid_y)];
 
     // here yy should have size [numX]
-    tridag(myA,myB,myC,myU,numX,myU,myYY);
+    tridag(myA,myB,myC,myU,numX,myU,myYY,numZ);
 }
 
 __global__
@@ -380,8 +384,8 @@ void rollback_implicit_y_kernel(
         c[IDX3(outer,numZ,numZ, j,tid_x,tid_y)] = c_new;
 
         y[IDX3(outer,numZ,numZ, j,tid_x,tid_y)]
-            = dtInv * u[IDX3(outer,numX,numY, j,tid_x,tid_y)]
-            - 0.5   * v[IDX3(outer,numX,numY, j,tid_x,tid_y)];
+            = dtInv * u[IDX3(outer,numZ,numZ, j,tid_x,tid_y)]
+            - 0.5   * v[IDX3(outer,numZ,numZ, j,tid_x,tid_y)];
     }
 }
 
@@ -405,20 +409,20 @@ void rollback_implicit_y_part2_kernel(
         REAL *y,
         REAL *yy
 ) {
-    unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
-    unsigned int tid_x     = blockIdx.y*blockDim.y + threadIdx.y;
+    unsigned int tid_x     = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_outer = blockIdx.y*blockDim.y + threadIdx.y;
 
     if (tid_outer >= outer || tid_x >= numX)
         return;
 
-    REAL *myA  =  &a[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
-    REAL *myB  =  &b[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
-    REAL *myC  =  &c[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
-    REAL *myY  =  &y[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
-    REAL *myYY = &yy[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
+    REAL *myA  =  &a[IDX3(outer,numZ,numZ, tid_outer,0,tid_x)];
+    REAL *myB  =  &b[IDX3(outer,numZ,numZ, tid_outer,0,tid_x)];
+    REAL *myC  =  &c[IDX3(outer,numZ,numZ, tid_outer,0,tid_x)];
+    REAL *myY  =  &y[IDX3(outer,numZ,numZ, tid_outer,0,tid_x)];
+    REAL *myYY = &yy[IDX3(outer,numZ,numZ, tid_outer,0,tid_x)];
 
     // here yy should have size [numY]
-    tridag(myA,myB,myC,myY,numY,&myResult[IDX3(outer,numX,numY, tid_outer, tid_x, 0)],myYY);
+    tridag(myA,myB,myC,myY,numY,&myResult[IDX3(outer,numZ,numZ, tid_outer, 0, tid_x)],myYY,numZ);
 }
 
 #endif
