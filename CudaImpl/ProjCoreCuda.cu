@@ -294,15 +294,15 @@ void   run_cuda(
 
 #if DO_DEBUG
     REAL *myResult;
-    myResult = (REAL*) malloc(outer * numX * numY * sizeof(REAL));
-    cudaMemcpy(myResult, myResult_d, outer * numX * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
+    myResult = (REAL*) malloc(outer * numZ * numZ * sizeof(REAL));
+    cudaMemcpy(myResult, myResult_d, outer * numZ * numZ * sizeof(REAL), cudaMemcpyDeviceToHost);
     CudaCheckError();
 
     setPayoff(0.001 * 7, globs);
     for (int x = 0; x < numX; ++x) {
     for (int y = 0; y < numY; ++y) {
         REAL x1 = globs.myResult[x][y];
-        REAL x2 = myResult[IDX3(outer,numX,numY, 7,x,y)];
+        REAL x2 = myResult[IDX3(outer,numZ,numZ, 7,x,y)];
         if (abs(x1-x2) >= 1e-10) {
             printf("myResult(%d,%d,%d), %.14f, %.14f, %.14f\n", 7, x, y, abs(x1-x2), x1, x2);
         }
