@@ -77,6 +77,7 @@ void readDataSet(   unsigned int& outer,
     {   // check dataset invariants:
         bool atr_ok = true;
 
+#pragma diag_suppress boolean_controlling_expr_is_constant
         atr_ok  = outer > 0;
         assert(atr_ok && "Outer loop count less than 0!");
 
@@ -88,6 +89,7 @@ void readDataSet(   unsigned int& outer,
 
         atr_ok  = num_T > 0;
         assert(atr_ok && "NUM_T value less or equal to zero!!");
+
     }
 }
 

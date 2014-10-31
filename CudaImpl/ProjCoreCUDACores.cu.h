@@ -39,7 +39,7 @@ void tridag(
           REAL   *uu,   // size [n] temporary
     const int stride
 ) {
-    int    i, offset;
+    int    i;
     REAL   beta;
 
     u[0*stride]  = r[0*stride];

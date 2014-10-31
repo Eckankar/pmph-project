@@ -409,12 +409,10 @@ void   run_cuda(
         transpose3d(myResult_t_d, myResult_d, outer, numZ, numZ);
     }
 
-    printf("pre-res\n");
     res_kernel<<<ceil((REAL)outer/block_size), block_size>>>(res_d, myResult_d, outer, numX, numY, numZ, myXindex, myYindex);
     cudaDeviceSynchronize();
-    printf("post-res\n");
+
     cudaMemcpy(res, res_d, outer * sizeof(REAL), cudaMemcpyDeviceToHost);
-    printf("post-memcpy\n");
 
     // XXX: free everything maybe
 }
