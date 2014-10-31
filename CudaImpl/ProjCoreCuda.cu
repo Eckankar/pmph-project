@@ -385,11 +385,47 @@ void   run_cuda(
         rollback_explicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, u_t_d, v_d,
                 myTimeline_d, myVarY_d, myDyy_t_d, myResult_d); // 2D
 
+#ifdef DO_DEBUG
+        REAL *u2_d;
+        CudaSafeCall( cudaMalloc((void **) &u2_d,     outer * numZ * numZ * sizeof(REAL)) );
+        transpose3d(u_t_d, u2_d, outer, numZ, numZ);
+#endif
+
         rollback_implicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, numT, j,
                         myTimeline_d, myVarX_d, myDxx_t_d, a_d, b_d, c_d);
 
         rollback_implicit_x_part2_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, numZ, u_t_d,
                 a_d, b_d, c_d, yy_d); // 2D
+
+
+#ifdef DO_DEBUG
+        rollback_implicit_x_old_kernel<<<GRID(outer, numY), block_size2>>>(
+            outer, numX, numY, numZ, numT, j, myTimeline_d, myVarX_d, myDxx_d, u2_d,
+            a_d, b_d, c_d, yy_d
+        );
+
+        REAL *u2, *u;
+        u  = (REAL *) malloc(outer * numZ * numZ * sizeof(REAL));
+        u2 = (REAL *) malloc(outer * numZ * numZ * sizeof(REAL));
+
+        cudaMemcpy(u , u_t_d , outer * numZ * numZ * sizeof(REAL), cudaMemcpyDeviceToHost);
+        cudaMemcpy(u2, u2_d, outer * numZ * numZ * sizeof(REAL), cudaMemcpyDeviceToHost);
+
+        for (int x = 0; x < outer; x++) {
+        for (int y = 0; y < numZ; y++) {
+        for (int z = 0; z < numZ; z++) {
+            REAL x1 = u[IDX3(outer,numZ,numZ, x,z,y)];
+            REAL x2 = u2[IDX3(outer,numZ,numZ, x,y,z)];
+            if (abs(x1-x2) >= 1e-10) {
+                printf("u(%d,%d,%d), %.14f, ex %.14f, got %.14f\n", x, y, z, abs(x1-x2), x2, x1);
+            }
+        }
+        }
+        }
+        free(u2);
+        free(u);
+        cudaFree(u2_d);
+#endif
 
 
         rollback_implicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, numT, j,
