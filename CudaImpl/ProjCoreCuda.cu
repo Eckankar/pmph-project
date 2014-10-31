@@ -396,7 +396,7 @@ void   run_cuda(
         rollback_explicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, u_t_d, v_d,
                 myTimeline_d, myVarY_d, myDyy_t_d, myResult_d); // 2D
 
-#ifdef DO_DEBUG
+#if 0
         REAL *u2_d;
         CudaSafeCall( cudaMalloc((void **) &u2_d,     outer * numZ * numZ * sizeof(REAL)) );
         transpose3d(u_t_d, u2_d, outer, numZ, numZ);
@@ -412,7 +412,7 @@ void   run_cuda(
                 a_d, b_d, c_d, yy_d); // 2D
 
 
-#ifdef DO_DEBUG
+#if 0
         rollback_implicit_x_old_kernel<<<GRID(outer, numY), block_size2>>>(
             outer, numX, numY, numZ, numT, j, myTimeline_d, myVarX_d, myDxx_d, u2_d,
             a_d, b_d, c_d, yy_d
