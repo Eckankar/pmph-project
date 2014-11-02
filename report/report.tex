@@ -120,9 +120,34 @@ REAL myY[outer][numY];
 
 \subsection{Eliminate duplicate computations}
 
-Many\todo{should be more precise}~variables are only written to once, and are
-not a function of \texttt{outer}'s iteration variable. This allows to move
-these computations outside the outer loop. An example of such a transformation is \autoref{lst:duplicate1} to \autoref{lst:duplicate2}.
+Many variables are only written to once after the initial write (see
+\autoref{tbl:rw}), and are not a function of \texttt{outer}'s iteration
+variable. This allows to move these computations outside the outer loop. An
+example of such a transformation is \autoref{lst:duplicate1} to
+\autoref{lst:duplicate2}. This kind of transformation is valid for
+\texttt{myX}, \texttt{myY}, \texttt{myTimeline}, \texttt{myDxx} and
+\texttt{myDyy}. This saves computation time and memory.
+
+\begin{table}
+    \centering
+    \begin{tabular}{lcccccccc}
+        \toprule
+        \textbf{Function}             & \texttt{myX} & \texttt{myY} & \texttt{myTimeline} & \texttt{myResult} & \texttt{myVarX} & \texttt{myVarY} & \texttt{myDxx} & \texttt{myDyy} \\
+        \midrule
+        \texttt{initGrid}             & W            & W            & W                   &                   &                 &                 &                &                \\
+        \texttt{initOperator}, x      & R            &              &                     &                   &                 &                 & W              &                \\
+        \texttt{initOperator}, y      &              & R            &                     &                   &                 &                 &                & W              \\
+        \texttt{setPayoff}            & R            &              &                     & W                 &                 &                 &                &                \\
+        \texttt{updateParams}         & R            & R            & R                   &                   & W               & W               &                &                \\
+        \texttt{rollback}, explicit x &              &              &                     & R                 & R               &                 & R              &                \\
+        \texttt{rollback}, explicit y &              &              &                     & R                 &                 & R               &                & R              \\
+        \texttt{rollback}, implicit x &              &              &                     &                   & R               &                 & R              &                \\
+        \texttt{rollback}, implicit y &              &              &                     & W                 &                 & R               &                & R              \\
+        \bottomrule
+    \end{tabular}
+    \caption{Reads and writes in global variables.}
+    \label{tbl:rw}
+\end{table}
 
 \begin{lstlisting}[caption={bla bla},label={lst:duplicate1}]
 REAL myX[outer][numX];
@@ -152,34 +177,5 @@ initGrid(..., myX, myY, numX, numY, ...);
 \subsection{Optimizing tridag}
 
 % XXX
-
-
-
-
-
-
-\section{stuff}
-
-\begin{table}
-    \centering
-    \begin{tabular}{lcccccccc}
-        \toprule
-        \textbf{Function}             & \texttt{myX} & \texttt{myY} & \texttt{myTimeline} & \texttt{myResult} & \texttt{myVarX} & \texttt{myVarY} & \texttt{myDxx} & \texttt{myDyy} \\
-        \midrule
-        \texttt{initGrid}             & W            & W            & W                   &                   &                 &                 &                &                \\
-        \texttt{initOperator}, x      & R            &              &                     &                   &                 &                 & W              &                \\
-        \texttt{initOperator}, y      &              & R            &                     &                   &                 &                 &                & W              \\
-        \texttt{setPayoff}            & R            &              &                     & W                 &                 &                 &                &                \\
-        \texttt{updateParams}         & R            & R            & R                   &                   & W               & W               &                &                \\
-        \texttt{rollback}, explicit x &              &              &                     & R                 & R               &                 & R              &                \\
-        \texttt{rollback}, explicit y &              &              &                     & R                 &                 & R               &                & R              \\
-        \texttt{rollback}, implicit x &              &              &                     &                   & R               &                 & R              &                \\
-        \texttt{rollback}, implicit y &              &              &                     & W                 &                 & R               &                & R              \\
-        \bottomrule
-    \end{tabular}
-    \caption{Reads and writes in global variables.}
-    \label{tbl:rw}
-\end{table}
-
 
 \end{document}
