@@ -17,8 +17,6 @@
 \newcommand{\subtableautorefname}{\tableautorefname}
 \usepackage[margin=10pt,font=footnotesize,labelfont=bf]{caption}
 
-\def\epsilon\varepsilon
-
 \usepackage{textcomp}
 \usepackage{listingsutf8}
 \lstset{
@@ -376,8 +374,8 @@ with the bug fixed, however.
 \subsection{Result validation}
 
 Prior to tridag coalescing, we have been unable to get the CUDA version to
-validate at the supplied $\epsilon$\footnote{Except on the small dataset.}. It
-does, however, validate at $10 \cdot \epsilon$. Due to the result being that
+validate at the supplied $\varepsilon$\footnote{Except on the small dataset.}. It
+does, however, validate at $10 \cdot \varepsilon$. Due to the result being that
 close to validating, we believe our fundamental methods to be sound. We have
 sadly been unable to locate the bug(s) causing the imprecision in our result,
 in spite on numerous hours of debugging.
