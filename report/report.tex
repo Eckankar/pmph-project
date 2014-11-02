@@ -10,10 +10,34 @@
 \usepackage{hyperref}
 \usepackage{booktabs}
 
+\usepackage{todonotes}
+
 \usepackage{subfig}
 \newcommand{\subfigureautorefname}{\figureautorefname}
 \newcommand{\subtableautorefname}{\tableautorefname}
 \usepackage[margin=10pt,font=footnotesize,labelfont=bf]{caption}
+
+\usepackage{textcomp}
+\usepackage{listingsutf8}
+\lstset{
+    keywordstyle=\bfseries\ttfamily\color[rgb]{0,0,1},
+    identifierstyle=\ttfamily,
+    commentstyle=\color[rgb]{0.133,0.545,0.133},
+    stringstyle=\ttfamily\color[rgb]{0.627,0.126,0.941},
+    showstringspaces=false,
+    basicstyle=\footnotesize\ttfamily,
+    numbersep=10pt,
+    tabsize=2,
+    breaklines=true,
+    prebreak = \raisebox{0ex}[0ex][0ex]{\ensuremath{\hookleftarrow}},
+    breakatwhitespace=false,
+    aboveskip={1.5\baselineskip},
+    columns=fixed,
+    extendedchars=true,
+    frame=single,
+    captionpos=b,
+    language=C++
+}
 
 \title{Programming Massively Parallel Hardware \\ Group Project}
 \author{Sebastian Paaske Tørholm \and Daniel Egeberg}
@@ -55,11 +79,11 @@ This can be parallelized by changing the algorithm to the one mentioned in the l
 
 \section{OpenMP implementation}
 
-This is done by privatizing the loop in \texttt{run\_OrigCPU} as described in \autoref{sec:loop}. Doing this we can just add
-\begin{verbatim}
+This is done by privatizing the loop in \texttt{run\_OrigCPU} as described in \autoref{sec:loop}. Doing this we can just add \autoref{lst:ompPragma} to the outer loop as suggested.
+
+\begin{lstlisting}[caption={bla bla},label={lst:ompPragma}]
 #pragma omp parallel for default(shared) schedule(static) if(outer>4)
-\end{verbatim}
-to the outer loop as suggested.
+\end{lstlisting}
 
 
 \section{CUDA implementation}
@@ -82,20 +106,40 @@ CUDA kernel, and in particular, we cannot use the vectors as they use dynamic
 resizing, while dynamic memory allocation is not possible in a CUDA kernel.
 This requires us to use arrays directly. We replace the \texttt{PrivGlobs}
 array with the individual fields extended with the \texttt{outer} dimension.
-This means that
-\begin{verbatim}
+This means that \autoref{lst:vector1} can be rewritten to
+\autoref{lst:vector2}.
+
+\begin{lstlisting}[caption={An array of \texttt{PrivGlobs}.},label={lst:vector1}]
 PrivGlobs globs[outer];
-\end{verbatim}
-gets rewritten to
-\begin{verbatim}
+\end{lstlisting}
+\begin{lstlisting}[caption={Expanding the struct.},label={lst:vector2}]
 REAL myX[outer][numX];
 REAL myY[outer][numY];
 // ...
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Eliminate duplicate computations}
 
-% XXX
+Many\todo{should be more precise}~variables are only written to once, and are
+not a function of \texttt{outer}'s iteration variable. This allows to move
+these computations outside the outer loop. An example of such a transformation is \autoref{lst:duplicate1} to \autoref{lst:duplicate2}.
+
+\begin{lstlisting}[caption={bla bla},label={lst:duplicate1}]
+REAL myX[outer][numX];
+REAL myY[outer][numY];
+// ...
+for (unsigned i = 0; i < outer; ++i) {
+    initGrid(..., i, myX, myY, numX, numY, ...);
+    // ...
+}
+\end{lstlisting}
+\begin{lstlisting}[caption={bla bla},label={lst:duplicate2}]
+REAL myX[numX];
+REAL myY[numY];
+// ...
+initGrid(..., myX, myY, numX, numY, ...);
+// ...
+\end{lstlisting}
 
 \subsection{Converting to kernels}
 
@@ -108,5 +152,34 @@ REAL myY[outer][numY];
 \subsection{Optimizing tridag}
 
 % XXX
+
+
+
+
+
+
+\section{stuff}
+
+\begin{table}
+    \centering
+    \begin{tabular}{lcccccccc}
+        \toprule
+        \textbf{Function}             & \texttt{myX} & \texttt{myY} & \texttt{myTimeline} & \texttt{myResult} & \texttt{myVarX} & \texttt{myVarY} & \texttt{myDxx} & \texttt{myDyy} \\
+        \midrule
+        \texttt{initGrid}             & W            & W            & W                   &                   &                 &                 &                &                \\
+        \texttt{initOperator}, x      & R            &              &                     &                   &                 &                 & W              &                \\
+        \texttt{initOperator}, y      &              & R            &                     &                   &                 &                 &                & W              \\
+        \texttt{setPayoff}            & R            &              &                     & W                 &                 &                 &                &                \\
+        \texttt{updateParams}         & R            & R            & R                   &                   & W               & W               &                &                \\
+        \texttt{rollback}, explicit x &              &              &                     & R                 & R               &                 & R              &                \\
+        \texttt{rollback}, explicit y &              &              &                     & R                 &                 & R               &                & R              \\
+        \texttt{rollback}, implicit x &              &              &                     &                   & R               &                 & R              &                \\
+        \texttt{rollback}, implicit y &              &              &                     & W                 &                 & R               &                & R              \\
+        \bottomrule
+    \end{tabular}
+    \caption{Reads and writes in global variables.}
+    \label{tbl:rw}
+\end{table}
+
 
 \end{document}
