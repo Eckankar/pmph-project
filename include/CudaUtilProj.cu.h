@@ -527,7 +527,7 @@ void transpose3d( REAL*             inp_d,
    int  dimy = ceil( ((REAL) width)/tile );
    int  dimz = ceil( ((REAL) depth)/tile );
    dim3 block(tile, tile, tile);
-   dim3 grid (dimz, dimx, dimy);
+   dim3 grid (dimz, dimy, dimx);
    //dim3 grid (dimx, dimy, dimz);
 
    //2. execute the kernel
