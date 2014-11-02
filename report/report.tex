@@ -300,6 +300,9 @@ In order to do this restructuring, we can do a transpose of the two innermost
 dimensions. With most of the arrays, we only need them in their transposed
 form, and therefore don't need to perform any actual transpose operation.
 
+The transpose function is based on the tiled two-dimensional transpose,
+performing a segmented transpose, treating each row as a segment.
+
 Coalescing memory in all the kernels, without optimizing tridag brought the
 running time on the large dataset down from about 25 seconds, to about 16
 seconds.
