@@ -83,7 +83,7 @@ This is done by privatizing the loop in \texttt{run\_OrigCPU} as described in
 \autoref{sec:loop}. Doing this we can just add \autoref{lst:ompPragma} to the
 outer loop as suggested.\todo{Argue why this is valid.}
 
-\begin{lstlisting}[caption={bla bla},label={lst:ompPragma}]
+\begin{lstlisting}[caption={OpenMP parallelization pragma.},label={lst:ompPragma}]
 #pragma omp parallel for default(shared) schedule(static) if(outer>4)
 \end{lstlisting}
 
@@ -152,7 +152,7 @@ example of such a transformation is \autoref{lst:duplicate1} to
     \label{tbl:rw}
 \end{table}
 
-\begin{lstlisting}[caption={bla bla},label={lst:duplicate1}]
+\begin{lstlisting}[caption={Code doing duplicate computations.},label={lst:duplicate1}]
 REAL myX[outer][numX];
 REAL myY[outer][numY];
 // ...
@@ -161,7 +161,7 @@ for (unsigned i = 0; i < outer; ++i) {
     // ...
 }
 \end{lstlisting}
-\begin{lstlisting}[caption={bla bla},label={lst:duplicate2}]
+\begin{lstlisting}[caption={Removal of duplicate computations.},label={lst:duplicate2}]
 REAL myX[numX];
 REAL myY[numY];
 // ...
@@ -187,14 +187,14 @@ transformation is valid as there are no dependencies across \texttt{outer}
 iterations and the results are saved per iteration, except where the results
 are identical each iteration as shown in \autoref{sec:eliminate_dup_comp}.
 
-\begin{lstlisting}[caption={bla bla},label={lst:splitting1}]
+\begin{lstlisting}[caption={Before splitting loops.},label={lst:splitting1}]
 for (unsigned i = 0; i < outer; ++i) {
     updateparams(...);
     rollback_explicit_x(...);
     // ...
 }
 \end{lstlisting}
-\begin{lstlisting}[caption={bla bla},label={lst:splitting2}]
+\begin{lstlisting}[caption={After splitting loops.},label={lst:splitting2}]
 for (unsigned i = 0; i < outer; ++i) {
     updateparams(...);
 }
