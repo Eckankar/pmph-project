@@ -131,38 +131,35 @@ void   run_cuda(
     //REAL myDyy[numY][4];
 
 #if DO_DEBUG
-    REAL testMatrix[2][3][4] = {
-        { {1,2,3,4},
-          {5,6,7,8},
-          {9,10,11,12} },
-        { {13,14,15,16},
-          {17,18,19,20},
-          {21,22,23,24} }
-    };
-    REAL expectedMatrix[2][4][3] = {
-        { {1,5,9},
-          {2,6,10},
-          {3,7,11},
-          {4,8,12} },
-        { {13,17,21},
-          {14,18,22},
-          {15,19,23},
-          {16,20,24} }
-    };
-    REAL testMatrix_t[2][4][3] = {0};
+    #define TDIMX 9
+    #define TDIMY 20
+    #define TDIMZ 10
+
+    REAL testMatrix[TDIMX][TDIMY][TDIMZ];
+    REAL expectedMatrix[TDIMX][TDIMZ][TDIMY];
+    REAL testMatrix_t[TDIMX][TDIMZ][TDIMY] = {0};
+
+    int cnt = 1;
+    for (int i = 0; i < TDIMX; i++) {
+    for (int j = 0; j < TDIMY; j++) {
+    for (int k = 0; k < TDIMZ; k++) {
+        testMatrix[i][j][k] = cnt;
+        expectedMatrix[i][k][j] = cnt;
+        cnt += 1;
+    }}}
 
     REAL *testMatrix_d, *testMatrix_t_d;
-    CudaSafeCall( cudaMalloc( (void **) &testMatrix_d, 2*3*4*sizeof(REAL) ) );
-    CudaSafeCall( cudaMalloc( (void **) &testMatrix_t_d, 2*4*3*sizeof(REAL) ) );
-    cudaMemcpy(testMatrix_d, testMatrix, 2*3*4*sizeof(REAL), cudaMemcpyHostToDevice);
+    CudaSafeCall( cudaMalloc( (void **) &testMatrix_d, TDIMX*TDIMY*TDIMZ*sizeof(REAL) ) );
+    CudaSafeCall( cudaMalloc( (void **) &testMatrix_t_d, TDIMX*TDIMZ*TDIMY*sizeof(REAL) ) );
+    cudaMemcpy(testMatrix_d, testMatrix, TDIMX*TDIMZ*TDIMY*sizeof(REAL), cudaMemcpyHostToDevice);
 
-    transpose3d(testMatrix_d, testMatrix_t_d, 2, 3, 4);
-    cudaMemcpy(testMatrix_t, testMatrix_t_d, 2*3*4*sizeof(REAL), cudaMemcpyDeviceToHost);
+    transpose3d(testMatrix_d, testMatrix_t_d, TDIMX, TDIMY, TDIMZ);
+    cudaMemcpy(testMatrix_t, testMatrix_t_d, TDIMX*TDIMZ*TDIMY*sizeof(REAL), cudaMemcpyDeviceToHost);
 
     printf("Got:\n");
-    for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 4; j++) {
-    for (int k = 0; k < 3; k++) {
+    for (int i = 0; i < TDIMX; i++) {
+    for (int j = 0; j < TDIMZ; j++) {
+    for (int k = 0; k < TDIMY; k++) {
         printf("%.0f ", testMatrix_t[i][j][k]);
     }
         printf("\n");
@@ -171,9 +168,9 @@ void   run_cuda(
     }
 
     printf("Expected:\n");
-    for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 4; j++) {
-    for (int k = 0; k < 3; k++) {
+    for (int i = 0; i < TDIMX; i++) {
+    for (int j = 0; j < TDIMZ; j++) {
+    for (int k = 0; k < TDIMY; k++) {
         printf("%.0f ", expectedMatrix[i][j][k]);
     }
         printf("\n");

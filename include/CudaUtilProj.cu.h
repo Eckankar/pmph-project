@@ -527,12 +527,12 @@ void transpose3d( REAL*             inp_d,
    int  dimy = ceil( ((REAL) width)/tile );
    int  dimz = ceil( ((REAL) depth)/tile );
    dim3 block(tile, tile, tile);
-   //dim3 grid (dimz, dimx, dimy);
-   dim3 grid (dimx, dimy, dimz);
+   dim3 grid (dimz, dimx, dimy);
+   //dim3 grid (dimx, dimy, dimz);
 
    //2. execute the kernel
-   simple3dTranspose<<< grid, block >>>(inp_d, out_d, height, width, depth);
-   //sgmMatTranspose<REAL,tile><<<grid,block>>>(inp_d, out_d, width, depth, height);
+   //simple3dTranspose<<< grid, block >>>(inp_d, out_d, height, width, depth);
+   sgmMatTranspose<REAL,tile><<<grid,block>>>(inp_d, out_d, width, depth, height);
    cudaThreadSynchronize();
 }
 
