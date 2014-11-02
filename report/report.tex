@@ -222,7 +222,9 @@ for (unsigned i = 0; i < outer; ++i) {
 Seeing as we cannot pass real multi-dimensional arrays to CUDA kernels, we have
 to create one-dimensional arrays and calculate the index manually based on
 their coordinates dimension sizes. For this we have created the macros in
-\autoref{lst:idx_macro}.
+\autoref{lst:idx_macro}. This means that if \texttt{a} is a $3 \times 4 \times
+5$-dimensional array, we would write \verb|a[IDX3(3,4,5, i,j,k)]| instead of
+\verb|a[i][j][k]|.
 
 \begin{lstlisting}[caption={Calculating array indices.},label={lst:idx_macro}]
 #define IDX2(DIMX, DIMY, X, Y)           ((X)*(DIMY) + (Y))
