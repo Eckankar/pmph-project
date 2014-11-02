@@ -387,7 +387,25 @@ imprecision. Inspection has shown \texttt{u} to be precise to only around
 $10^{-7}$ on the first iteration, causing an imprecision we believe to
 escalate as the time step increases.
 
-\subsection{Performance}
+\subsection{Possible improvements}
+
+This section will outline possible improvements that could be made to our
+program, that we haven't gotten done due to time constaints.
+
+Currently our implementation only performs parallellization on two dimensions
+of the dataset. For small datasets, this may not provide enough parallellism
+to fully utilize the hardware available. To improve on this situation, we
+could write a simple heuristic to detect if there isn't sufficient parallism
+in the given dimensions, and if not, parallelize on all 3 parallelizable
+dimensions. It should be possible with relatively little effort, to make
+versions of our existing kernels that do their work in three dimensions
+instead of two.
+
+The tridag implementation we use is simply a coalesced version of the original
+one. Writing a tridag using scans could most likely help improve performance
+further in the smaller cases, and possibly also in the larger case.
+
+\section{Performance}
 
 % small:
 % orig: 2018757, 2457320, 2120604 (2198894, 229524.1)
@@ -460,24 +478,5 @@ although it's a marginal speedup.
     \caption{Performance on the large dataset.}
     \label{tbl:time_large}
 \end{table}
-
-
-\subsection{Possible improvements}
-
-This section will outline possible improvements that could be made to our
-program, that we haven't gotten done due to time constaints.
-
-Currently our implementation only performs parallellization on two dimensions
-of the dataset. For small datasets, this may not provide enough parallellism
-to fully utilize the hardware available. To improve on this situation, we
-could write a simple heuristic to detect if there isn't sufficient parallism
-in the given dimensions, and if not, parallelize on all 3 parallelizable
-dimensions. It should be possible with relatively little effort, to make
-versions of our existing kernels that do their work in three dimensions
-instead of two.
-
-The tridag implementation we use is simply a coalesced version of the original
-one. Writing a tridag using scans could most likely help improve performance
-further in the smaller cases, and possibly also in the larger case.
 
 \end{document}
