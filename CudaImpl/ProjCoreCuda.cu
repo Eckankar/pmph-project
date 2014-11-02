@@ -291,6 +291,7 @@ void   run_cuda(
 #endif
 
     setPayoff_kernel<<<GRID(numY, numX), block_size2>>>(myX_d, myY_d, myResult_d, numX, numY, numZ, outer); // 2D
+    CudaCheckError();
 
 #if DO_DEBUG
     REAL *myResult;
@@ -347,6 +348,7 @@ void   run_cuda(
 
         updateParams_large_kernel<<<GRID(numY, numX), block_size2>>>(j, alpha, beta, nu, numX, numY,
                                                 numT, myX_d, myY_d, myVarX_d, myVarY_d, myTimeline_d); // 2D
+    CudaCheckError();
 
 #if DO_DEBUG
         if (j == numT-2) {
@@ -379,7 +381,7 @@ void   run_cuda(
         }
 #endif
 
-#ifdef DO_DEBUG
+#ifdef DO_DEBUG_2
         REAL *u2, *u;
         u  = (REAL *) malloc(outer * numZ * numZ * sizeof(REAL));
         u2 = (REAL *) malloc(outer * numZ * numZ * sizeof(REAL));
@@ -387,16 +389,18 @@ void   run_cuda(
 
         rollback_explicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numT, numZ, j, u_t_d,
                 myTimeline_d, myVarX_d, myDxx_t_d, myResult_d); // 2D
+        CudaCheckError();
 
-#ifdef DO_DEBUG
+#ifdef DO_DEBUG_2
         cudaMemcpy(u2, u_t_d, outer * numZ * numZ * sizeof(REAL), cudaMemcpyDeviceToHost);
         printf("u[0][20][40] = %.12f\n", u2[IDX3(outer,numZ,numZ,0,40,20)]);
 #endif
 
         rollback_explicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, u_t_d, v_d,
                 myTimeline_d, myVarY_d, myDyy_t_d, myResult_d); // 2D
+        CudaCheckError();
 
-#if 0
+#ifdef DO_DEBUG_2
         REAL *u2_d;
         CudaSafeCall( cudaMalloc((void **) &u2_d,     outer * numZ * numZ * sizeof(REAL)) );
         transpose3d(u_t_d, u2_d, outer, numZ, numZ);
@@ -407,12 +411,14 @@ void   run_cuda(
 
         rollback_implicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, numT, j,
                         myTimeline_d, myVarX_d, myDxx_t_d, a_d, b_d, c_d);
+        CudaCheckError();
 
         rollback_implicit_x_part2_kernel<<<GRID(outer, numY), block_size2>>>(outer, numX, numY, numZ, u_t_d,
                 a_d, b_d, c_d, yy_d); // 2D
+        CudaCheckError();
 
 
-#if 0
+#ifdef DO_DEBUG_2
         rollback_implicit_x_old_kernel<<<GRID(outer, numY), block_size2>>>(
             outer, numX, numY, numZ, numT, j, myTimeline_d, myVarX_d, myDxx_d, u2_d,
             a_d, b_d, c_d, yy_d
@@ -440,6 +446,7 @@ void   run_cuda(
 
         rollback_implicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, numT, j,
                 myTimeline_d, myVarY_d, myDyy_t_d, myResult_d, u_t_d, v_d, a_d, b_d, c_d, y_d); // 2D
+        CudaCheckError();
 
         transpose3d(myResult_d, myResult_t_d, outer, numZ, numZ);
 
@@ -451,6 +458,7 @@ void   run_cuda(
         rollback_implicit_y_part2_kernel<<<GRID(outer, numX), block_size2>>>(outer, numX, numY, numZ, numT, j, myTimeline_d,
                                                  myVarY_d, myDyy_d, myResult_t_d, u_t_d, v_d, a_t_d,
                                                  b_t_d, c_t_d, y_t_d, yy_d); // 2D
+        CudaCheckError();
 
         transpose3d(myResult_t_d, myResult_d, outer, numZ, numZ);
     }
