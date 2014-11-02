@@ -55,9 +55,11 @@ This can be parallelized by changing the algorithm to the one mentioned in the l
 
 \section{OpenMP implementation}
 
-This is done by privatizing the loop in \texttt{run\_OrigCPU} as described in \autoref{sec:loop}. Doing this we can just add \begin{verbatim}
+This is done by privatizing the loop in \texttt{run\_OrigCPU} as described in \autoref{sec:loop}. Doing this we can just add
+\begin{verbatim}
 #pragma omp parallel for default(shared) schedule(static) if(outer>4)
-\end{verbatim} to the outer loop as suggested.
+\end{verbatim}
+to the outer loop as suggested.
 
 
 \section{CUDA implementation}
@@ -72,5 +74,24 @@ operations that depend on the time step. Thus, we can factor out all other
 operations in a parallelizable loop by maintaining a separate \texttt{globs}
 struct per ``\texttt{outer}''.
 
+\subsection{Converting from STL vectors}
+
+% XXX
+
+\subsection{Eliminate duplicate computations}
+
+% XXX
+
+\subsection{Converting to kernels}
+
+% XXX
+
+\subsection{Coalescing memory accesses}
+
+% XXX
+
+\subsection{Optimizing tridag}
+
+% XXX
 
 \end{document}
