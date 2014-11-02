@@ -81,7 +81,7 @@ This can be parallelized by changing the algorithm to the one mentioned in the l
 
 This is done by privatizing the loop in \texttt{run\_OrigCPU} as described in
 \autoref{sec:loop}. Doing this we can just add \autoref{lst:ompPragma} to the
-outer loop as suggested.\todo{Argue why this is valid.}
+outer loop as suggested.
 
 \begin{lstlisting}[caption={OpenMP parallelization pragma.},label={lst:ompPragma}]
 #pragma omp parallel for default(shared) schedule(static) if(outer>4)
