@@ -267,7 +267,8 @@ their coordinates dimension sizes. For this we have created the macros in
 \subsection{Coalescing memory accesses}
 
 In order to coalesce memory accesses, we restructured a number of the arrays,
-to match the loop nesting in our kernels. 
+to match the loop nesting in our kernels, such as in \autoref{lst:coalesce1}
+that becomes \autoref{lst:coalesce2}.
 
 \begin{lstlisting}[caption={\texttt{rollback}'s ``explicit x'' kernel pre-coalescing.},label={lst:coalesce1}]
 void rollback_explicit_x_kernel(...) {
@@ -319,10 +320,11 @@ seconds.
 
 \subsection{Optimizing tridag}
 
-In order to coalesce memory accesses in tridag, we needed to change it to
-work on columns instead of rows. We enable doing this by resizing each input
-vector to have size \texttt{numZ = max(numX, numY)}, allowing us to access the
-element \texttt{i} at index \texttt{i * numZ}. 
+In order to coalesce memory accesses in tridag, we needed to change it to work
+on columns instead of rows. We enable doing this by resizing each input vector
+to have size \texttt{numZ = max(numX, numY)}, allowing us to access the element
+\texttt{i} at index \texttt{i * numZ}. This is done by transforming
+\autoref{lst:tridag1} to \autoref{lst:tridag2}.
 
 \begin{lstlisting}[caption={The call to \texttt{tridag} pre-coalescing},label={lst:tridag1}]
 __device__
