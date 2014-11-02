@@ -263,9 +263,56 @@ their coordinates dimension sizes. For this we have created the macros in
 
 \subsection{Coalescing memory accesses}
 
-% XXX
+In order to coalesce memory accesses, we restructured a number of the arrays,
+to match the loop nesting in our kernels. 
+
+\begin{lstlisting}[caption={\texttt{rollback}'s ``explicit x'' kernel pre-coalescing.},label={lst:kernel2}]
+void rollback_explicit_x_kernel(...) {
+    unsigned int tid_y = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_x = blockIdx.y*blockDim.y + threadIdx.y;
+
+    if (tid_y >= numY || tid_x >= numX)
+        return;
+
+    for (unsigned o = 0; o < outer; ++o) {
+        // ...
+        u[IDX3(outer,numY,numX, o,tid_y,tid_x)] = ...
+        // ...
+    }
+\end{lstlisting}
+
+\begin{lstlisting}[caption={\texttt{rollback}'s ``explicit x'' kernel post-coalescing.},label={lst:kernel2}]
+void rollback_explicit_x_kernel(...) {
+    unsigned int tid_y = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_x = blockIdx.y*blockDim.y + threadIdx.y;
+
+    if (tid_y >= numY || tid_x >= numX)
+        return;
+
+    for (unsigned o = 0; o < outer; ++o) {
+        // ...
+        u[IDX3(outer,numX,numY, o,tid_x,tid_y)] = ...
+        // ...
+    }
+\end{lstlisting}
+
+In order to do this restructuring, we can do a transpose of the two innermost
+dimensions. With most of the arrays, we only need them in their transposed
+form, and therefore don't need to perform any actual transpose operation.
+
+Coalescing memory in all the kernels, without optimizing tridag brought the
+running time on the large dataset down from about 25 seconds, to about 16
+seconds.
 
 \subsection{Optimizing tridag}
+
+% XXX
+
+\subsection{Precision problems}
+
+% XXX
+
+\subsection{Speedup}
 
 % XXX
 
