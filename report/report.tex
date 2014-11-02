@@ -266,6 +266,11 @@ their coordinates dimension sizes. For this we have created the macros in
 
 \subsection{Coalescing memory accesses}
 
+At the current point, no care has been made to ensure that memory accesses
+are done in an optimized way. By rearranging the indexes we read from and
+write to, we can obtain a speed-up, by having threads read adjacent memory
+on simultaneous reads.
+
 In order to coalesce memory accesses, we restructured a number of the arrays,
 to match the loop nesting in our kernels, such as in \autoref{lst:coalesce1}
 that becomes \autoref{lst:coalesce2}.
