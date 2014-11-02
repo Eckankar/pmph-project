@@ -76,7 +76,22 @@ struct per ``\texttt{outer}''.
 
 \subsection{Converting from STL vectors}
 
-% XXX
+The original implementation uses the \texttt{PrivGlobs} struct, which is
+implemented using vectors from C++ STL\@. We cannot use things from STL in a
+CUDA kernel, and in particular, we cannot use the vectors as they use dynamic
+resizing, while dynamic memory allocation is not possible in a CUDA kernel.
+This requires us to use arrays directly. We replace the \texttt{PrivGlobs}
+array with the individual fields extended with the \texttt{outer} dimension.
+This means that
+\begin{verbatim}
+PrivGlobs globs[outer];
+\end{verbatim}
+gets rewritten to
+\begin{verbatim}
+REAL myX[outer][numX];
+REAL myY[outer][numY];
+// ...
+\end{verbatim}
 
 \subsection{Eliminate duplicate computations}
 
