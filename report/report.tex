@@ -176,7 +176,10 @@ the parameters where it has read/write operations. Here we need to take special
 care of \texttt{rollback} as it has a number of local variables that are shared
 across the different subparts of the function. These are \texttt{u} and
 \texttt{v}, and their read/write operations are outlined in
-\autoref{tbl:rw_rollback}.
+\autoref{tbl:rw_rollback}. As we cannot have dynamically sized local variables,
+we allocate these globally using \texttt{cudaMalloc}. The same happens for
+\texttt{a}, \texttt{b}, \texttt{c} and \texttt{y}, which are needed inside the
+four rollback kernels.
 
 This logically represents splitting up the outer loop, i.e.\ doing the
 transformation \autoref{lst:splitting1} to \autoref{lst:splitting2}. This
