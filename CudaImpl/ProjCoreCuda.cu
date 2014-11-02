@@ -389,7 +389,7 @@ void   run_cuda(
         u2 = (REAL *) malloc(outer * numZ * numZ * sizeof(REAL));
 #endif
 
-        rollback_explicit_x_kernel<TILE2><<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numT, numZ, j, u_t_d,
+        rollback_explicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numT, numZ, j, u_t_d,
                 myTimeline_d, myVarX_d, myDxx_t_d, myResult_d); // 2D
         CudaCheckError();
 
