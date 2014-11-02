@@ -387,9 +387,80 @@ imprecision. Inspection has shown \texttt{u} to be precise to only around
 $10^{-7}$ on the first iteration, causing an imprecision we believe to
 escalate as the time step increases.
 
-\subsection{Speedup}
+\subsection{Performance}
 
-% XXX
+% small:
+% orig: 2018757, 2457320, 2120604 (2198894, 229524.1)
+% omp: 187334, 189035, 191612 (189327, 2153.896)
+% cuda (no tridag): 1774632, 1566203, 1572650 (1637828, 118519.3)
+% cuda (with tridag): 1335515, 1327069, 1315693 (1326092, 9947.026)
+
+% medium:
+% orig: 4704631, 4665264, 4448265 (4606053, 138059.1)
+% omp: 247887, 232813, 232282 (237660.7, 8860.243)
+% cuda (no tridag): 1791254, 1781069, 1777709 (1783344, 7053.26)
+% cuda (with tridag): 1407254, 1393493, 1409386 (1403378, 8626.49)
+
+% large:
+% orig: 204725583, 190447498, 190311103 (195161395, 8283111)
+% omp: 9056566, 9115644, 9157951 (9110054, 50923.16)
+% cuda (no tridag): 16576421, 16588736, 16516714 (16560624, 38522.19)
+% cuda (with tridag): 8025731, 8031441, 8029736 (8028969, 2931.187)
+
+We observe the timings in tables~\ref{tbl:time_small},~\ref{tbl:time_medium}
+and~\ref{tbl:time_large}. We measured the time based on three runs, and the
+reported times are the mean runtimes with standard deviations. Unfortunately,
+our CUDA version is only faster than the OpenMP version on the large dataset,
+although it's a marginal speedup.
+
+\begin{table}
+    \centering
+    \begin{tabular}{lrrr}
+        \toprule
+        \textbf{Implementation} & \textbf{Time (s)} & \textbf{Step speedup} & \textbf{Cumulative speedup} \\
+        \midrule
+        Original         & $2.20\pm0.23$ &       &       \\
+        OpenMP           & $0.19\pm0.00$ & 11.6x & 11.6x \\
+        CUDA (wo/tridag) & $1.64\pm0.12$ &  0.1x &  1.3x \\
+        CUDA (w/tridag)  & $1.33\pm0.01$ &  1.2x &  1.7x \\
+        \bottomrule
+    \end{tabular}
+    \caption{Performance on the small dataset.}
+    \label{tbl:time_small}
+\end{table}
+
+\begin{table}
+    \centering
+    \begin{tabular}{lrrr}
+        \toprule
+        \textbf{Implementation} & \textbf{Time (s)} & \textbf{Step speedup} & \textbf{Cumulative speedup} \\
+        \midrule
+        Original         & $4.61\pm0.14$ &       &       \\
+        OpenMP           & $0.24\pm0.01$ & 19.2x & 19.2x \\
+        CUDA (wo/tridag) & $1.78\pm0.01$ &  0.1x &  2.6x \\
+        CUDA (w/tridag)  & $1.40\pm0.01$ &  1.3x &  3.3x \\
+        \bottomrule
+    \end{tabular}
+    \caption{Performance on the medium dataset.}
+    \label{tbl:time_medium}
+\end{table}
+
+\begin{table}
+    \centering
+    \begin{tabular}{lrrr}
+        \toprule
+        \textbf{Implementation} & \textbf{Time (s)} & \textbf{Step speedup} & \textbf{Cumulative speedup} \\
+        \midrule
+        Original         & $195.16\pm8.28$ &       &       \\
+        OpenMP           &   $9.11\pm0.05$ & 21.4x & 21.4x \\
+        CUDA (wo/tridag) &  $16.56\pm0.04$ &  0.6x & 11.8x \\
+        CUDA (w/tridag)  &   $8.03\pm0.00$ &  2.1x & 24.3x \\
+        \bottomrule
+    \end{tabular}
+    \caption{Performance on the large dataset.}
+    \label{tbl:time_large}
+\end{table}
+
 
 \subsection{Possible improvements}
 
