@@ -211,8 +211,10 @@ void   run_cuda(
     CudaSafeCall( cudaMalloc((void **) &myDxx_t_d,      numX * 4 * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myDyy_t_d,      numY * 4 * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myResult_t_d,   outer * numZ * numZ * sizeof(REAL)) );
-    const dim3 block_size2 = dim3(32, 32);
-    const dim3 block_size3 = dim3(8, 8, 8);
+#define TILE2 32
+#define TILE3 8
+    const dim3 block_size2 = dim3(TILE2, TILE2);
+    const dim3 block_size3 = dim3(TILE3, TILE3, TILE3);
     const int block_size   = block_size2.x * block_size2.y * block_size2.z;
 
     #define GRID(first,second) dim3(ceil((REAL)(first)/block_size2.x), ceil((REAL)(second)/block_size2.y))
@@ -387,7 +389,7 @@ void   run_cuda(
         u2 = (REAL *) malloc(outer * numZ * numZ * sizeof(REAL));
 #endif
 
-        rollback_explicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numT, numZ, j, u_t_d,
+        rollback_explicit_x_kernel<TILE2><<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numT, numZ, j, u_t_d,
                 myTimeline_d, myVarX_d, myDxx_t_d, myResult_d); // 2D
         CudaCheckError();
 

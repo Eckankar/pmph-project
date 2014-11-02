@@ -230,6 +230,7 @@ void res_kernel(
     res[tid_outer] = myResult[IDX3(outer, numZ, numZ, tid_outer, myXindex, myYindex)];
 }
 
+template<int TILE>
 __global__
 void rollback_explicit_x_kernel(
         const unsigned outer,
@@ -247,27 +248,37 @@ void rollback_explicit_x_kernel(
     unsigned int tid_y = blockIdx.x*blockDim.x + threadIdx.x;
     unsigned int tid_x = blockIdx.y*blockDim.y + threadIdx.y;
 
+    unsigned int tiy = threadIdx.x;
+    unsigned int tix = threadIdx.y;
+
     if (tid_y >= numY || tid_x >= numX)
         return;
+
+    __shared__ REAL myDxxT[3][TILE];
 
     REAL dtInv = 1.0/(myTimeline[g+1] - myTimeline[g]);
     REAL mymyVarX = myVarX[IDX2(numX,numY, tid_x,tid_y)];
 
-    for(int j=0; j < outer; j++) {
-        REAL *myu = &u[IDX3(outer,numZ,numZ, j,tid_x,tid_y)];
+    if (tiy < 3) {
+        myDxxT[tiy][tix] = myDxx[IDX2(4,numX, tiy,tid_x)];
+    }
+    __syncthreads();
 
-        *myu = dtInv*myResult[IDX3(outer,numZ,numZ, j,tid_x,tid_y)];
+    for(int j=0; j < outer; j++) {
+        REAL myu = dtInv*myResult[IDX3(outer,numZ,numZ, j,tid_x,tid_y)];
 
         if(tid_x > 0) {
-            *myu += 0.5 * ( 0.5 * mymyVarX * myDxx[IDX2(4,numX, 0,tid_x)] )
-                        * myResult[IDX3(outer,numZ,numZ, j,tid_x-1,tid_y)];
+            myu += 0.5 * ( 0.5 * mymyVarX * myDxxT[0][tix] )
+                       * myResult[IDX3(outer,numZ,numZ, j,tid_x-1,tid_y)];
         }
-        *myu  +=  0.5 * ( 0.5 * mymyVarX * myDxx[IDX2(4,numX, 1,tid_x)] )
+        myu  +=  0.5 * ( 0.5 * mymyVarX * myDxxT[1][tix] )
                         * myResult[IDX3(outer,numZ,numZ, j,tid_x,tid_y)];
         if(tid_x < numX-1) {
-            *myu += 0.5 * ( 0.5 * mymyVarX * myDxx[IDX2(4,numX, 2,tid_x)] )
-                        * myResult[IDX3(outer,numZ,numZ, j,tid_x+1,tid_y)];
+            myu += 0.5 * ( 0.5 * mymyVarX * myDxxT[2][tix] )
+                       * myResult[IDX3(outer,numZ,numZ, j,tid_x+1,tid_y)];
         }
+
+        u[IDX3(outer,numZ,numZ, j,tid_x,tid_y)] = myu;
     }
 }
 
