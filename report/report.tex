@@ -266,7 +266,7 @@ their coordinates dimension sizes. For this we have created the macros in
 In order to coalesce memory accesses, we restructured a number of the arrays,
 to match the loop nesting in our kernels. 
 
-\begin{lstlisting}[caption={\texttt{rollback}'s ``explicit x'' kernel pre-coalescing.},label={lst:kernel2}]
+\begin{lstlisting}[caption={\texttt{rollback}'s ``explicit x'' kernel pre-coalescing.},label={lst:coalesce1}]
 void rollback_explicit_x_kernel(...) {
     unsigned int tid_y = blockIdx.x*blockDim.x + threadIdx.x;
     unsigned int tid_x = blockIdx.y*blockDim.y + threadIdx.y;
@@ -281,7 +281,7 @@ void rollback_explicit_x_kernel(...) {
     }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={\texttt{rollback}'s ``explicit x'' kernel post-coalescing.},label={lst:kernel2}]
+\begin{lstlisting}[caption={\texttt{rollback}'s ``explicit x'' kernel post-coalescing.},label={lst:coalesce2}]
 void rollback_explicit_x_kernel(...) {
     unsigned int tid_y = blockIdx.x*blockDim.x + threadIdx.x;
     unsigned int tid_x = blockIdx.y*blockDim.y + threadIdx.y;
@@ -298,10 +298,17 @@ void rollback_explicit_x_kernel(...) {
 
 In order to do this restructuring, we can do a transpose of the two innermost
 dimensions. With most of the arrays, we only need them in their transposed
-form, and therefore don't need to perform any actual transpose operation.
+form in order to get good coalesced access, and therefore don't need to
+perform any actual transpose operation.
 
 The transpose function is based on the tiled two-dimensional transpose,
 performing a segmented transpose, treating each row as a segment.
+
+Furthermore, we split the implicit kernels into two parts, the first
+initializing the input vectors to tridag, and the other performing the
+actual tridag call. The first kernel is then parallelizable in the x and y
+dimensions, allowing us to do nicely coalesced writes. The second kernel is
+only parallelizable on one of x and y.
 
 Coalescing memory in all the kernels, without optimizing tridag brought the
 running time on the large dataset down from about 25 seconds, to about 16
@@ -309,7 +316,57 @@ seconds.
 
 \subsection{Optimizing tridag}
 
-% XXX
+In order to coalesce memory accesses in tridag, we needed to change it to
+work on columns instead of rows. We enable doing this by resizing each input
+vector to have size \texttt{numZ = max(numX, numY)}, allowing us to access the
+element \texttt{i} at index \texttt{i * numZ}. 
+
+\begin{lstlisting}[caption={The call to \texttt{tridag} pre-coalescing},label={lst:tridag1}]
+__device__
+void tridag(...) {
+    ...
+    uu[i] = b[i] - beta*c[i-1];
+    ...
+}
+
+__global__
+void rollback_implicit_x_part2_kernel(...) {
+    ...
+    REAL *myA  =  &a[IDX3(outer,numZ,numZ, tid_outer,tid_y,0)];
+    REAL *myB  =  &b[IDX3(outer,numZ,numZ, tid_outer,tid_y,0)];
+    ...
+
+    tridag(myA,myB,myC,myU,numX,myU,myYY);
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={The call to \texttt{tridag} post-coalescing},label={lst:tridag2}]
+__device__
+void tridag(..., int stride) {
+    ...
+    uu[i*stride] = b[i*stride] - beta*c[(i-1)*stride];
+    ...
+}
+
+__global__
+void rollback_implicit_x_part2_kernel(...) {
+    ...
+    REAL *myA  =  &a[IDX3(outer,numZ,numZ, tid_outer,0,tid_y)];
+    REAL *myB  =  &b[IDX3(outer,numZ,numZ, tid_outer,0,tid_y)];
+    ...
+
+    tridag(myA,myB,myC,myU,numX,myU,myYY,numZ);
+}
+\end{lstlisting}
+
+Performing this coalescing had a large impact on the execution time, lowering
+it from about 16 seconds to around 9 seconds on the large dataset.
+
+While we do believe this transformation to be valid, sadly we appear to have
+introduced a bug in performing it, making the precision degenerate rapidly
+on the large dataset, causing it to not validate, even with our increased
+epsilon. We do believe that the execution time matches what we could expect
+with the bug fixed, however.
 
 \subsection{Precision problems}
 
