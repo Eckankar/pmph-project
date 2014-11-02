@@ -17,6 +17,8 @@
 \newcommand{\subtableautorefname}{\tableautorefname}
 \usepackage[margin=10pt,font=footnotesize,labelfont=bf]{caption}
 
+\def\epsilon\varepsilon
+
 \usepackage{textcomp}
 \usepackage{listingsutf8}
 \lstset{
@@ -371,9 +373,19 @@ on the large dataset, causing it to not validate, even with our increased
 epsilon. We do believe that the execution time matches what we could expect
 with the bug fixed, however.
 
-\subsection{Precision problems}
+\subsection{Result validation}
 
-% XXX
+Prior to tridag coalescing, we have been unable to get the CUDA version to
+validate at the supplied $\epsilon$\footnote{Except on the small dataset.}. It
+does, however, validate at $10 \cdot \epsilon$. Due to the result being that
+close to validating, we believe our fundamental methods to be sound. We have
+sadly been unable to locate the bug(s) causing the imprecision in our result,
+in spite on numerous hours of debugging.
+
+In performing coalescing on tridag, we seem to have introduced further
+imprecision. Inspection has shown \texttt{u} to be precise to only around
+$10^{-7}$ on the first iteration, causing an imprecision we believe to
+escalate as the time step increases.
 
 \subsection{Speedup}
 
