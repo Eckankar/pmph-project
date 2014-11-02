@@ -219,6 +219,36 @@ for (unsigned i = 0; i < outer; ++i) {
     \label{tbl:rw_rollback}
 \end{table}
 
+Creating the kernels is done by parallelizing loops as block/thread dimensions
+in the kernel. An example is \texttt{rollback}'s ``explicit x'' loop in
+\autoref{lst:kernel1} which becomes the CUDA kernel in \autoref{lst:kernel2}.
+
+\begin{lstlisting}[caption={The original ``explicit x'' loop in \texttt{rollback}.},label={lst:kernel1}]
+for (unsigned o = 0; o < outer; ++o) {
+    // explicit x (rollback)
+    for (i = 0; i < numX; i++) {
+        for (j = 0; j < numY; j++) {
+            // perform computation
+        }
+    }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Converting \texttt{rollback}'s ``explicit x'' loop to a CUDA kernel.},label={lst:kernel2}]
+__global__
+void rollback_explicit_x_kernel(...) {
+    unsigned int tid_y = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_x = blockIdx.y*blockDim.y + threadIdx.y;
+
+    if (tid_y >= numY || tid_x >= numX)
+        return;
+
+    for (unsigned o = 0; o < outer; ++o) {
+        // perform computation
+    }
+}
+\end{lstlisting}
+
 Seeing as we cannot pass real multi-dimensional arrays to CUDA kernels, we have
 to create one-dimensional arrays and calculate the index manually based on
 their coordinates dimension sizes. For this we have created the macros in
