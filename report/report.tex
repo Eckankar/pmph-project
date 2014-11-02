@@ -79,7 +79,9 @@ This can be parallelized by changing the algorithm to the one mentioned in the l
 
 \section{OpenMP implementation}
 
-This is done by privatizing the loop in \texttt{run\_OrigCPU} as described in \autoref{sec:loop}. Doing this we can just add \autoref{lst:ompPragma} to the outer loop as suggested.
+This is done by privatizing the loop in \texttt{run\_OrigCPU} as described in
+\autoref{sec:loop}. Doing this we can just add \autoref{lst:ompPragma} to the
+outer loop as suggested.\todo{Argue why this is valid.}
 
 \begin{lstlisting}[caption={bla bla},label={lst:ompPragma}]
 #pragma omp parallel for default(shared) schedule(static) if(outer>4)
@@ -119,6 +121,7 @@ REAL myY[outer][numY];
 \end{lstlisting}
 
 \subsection{Eliminate duplicate computations}
+\label{sec:eliminate_dup_comp}
 
 Many variables are only written to once after the initial write (see
 \autoref{tbl:rw}), and are not a function of \texttt{outer}'s iteration
@@ -168,7 +171,63 @@ initGrid(..., myX, myY, numX, numY, ...);
 
 \subsection{Converting to kernels}
 
-% XXX
+Each line in \autoref{tbl:rw} gets converted to a separate CUDA kernel taking
+the parameters where it has read/write operations. Here we need to take special
+care of \texttt{rollback} as it has a number of local variables that are shared
+across the different subparts of the function. These are \texttt{u} and
+\texttt{v}, and their read/write operations are outlined in
+\autoref{tbl:rw_rollback}.
+
+This logically represents splitting up the outer loop, i.e.\ doing the
+transformation \autoref{lst:splitting1} to \autoref{lst:splitting2}. This
+transformation is valid as there are no dependencies across \texttt{outer}
+iterations and the results are saved per iteration, except where the results
+are identical each iteration as shown in \autoref{sec:eliminate_dup_comp}.
+
+\begin{lstlisting}[caption={bla bla},label={lst:splitting1}]
+for (unsigned i = 0; i < outer; ++i) {
+    updateparams(...);
+    rollback_explicit_x(...);
+    // ...
+}
+\end{lstlisting}
+\begin{lstlisting}[caption={bla bla},label={lst:splitting2}]
+for (unsigned i = 0; i < outer; ++i) {
+    updateparams(...);
+}
+for (unsigned i = 0; i < outer; ++i) {
+    rollback_explicit_x(...);
+}
+for (unsigned i = 0; i < outer; ++i) {
+    // ...
+}
+\end{lstlisting}
+
+\begin{table}
+    \centering
+    \begin{tabular}{lccccccc}
+        \toprule
+        \textbf{Function}             & \texttt{u} & \texttt{v} & \texttt{myResult} & \texttt{myVarX} & \texttt{myVarY} & \texttt{myDxx} & \texttt{myDyy} \\
+        \midrule
+        \texttt{rollback}, explicit x & W          &            & R                 & R               &                 & R              &                \\
+        \texttt{rollback}, explicit y & RW         & W          & R                 &                 & R               &                & R              \\
+        \texttt{rollback}, implicit x & RW         &            &                   & R               &                 & R              &                \\
+        \texttt{rollback}, implicit y & R          & R          & W                 &                 & R               &                & R              \\
+        \bottomrule
+    \end{tabular}
+    \caption{Reads and writes for \texttt{rollback}.}
+    \label{tbl:rw_rollback}
+\end{table}
+
+Seeing as we cannot pass real multi-dimensional arrays to CUDA kernels, we have
+to create one-dimensional arrays and calculate the index manually based on
+their coordinates dimension sizes. For this we have created the macros in
+\autoref{lst:idx_macro}.
+
+\begin{lstlisting}[caption={Calculating array indices.},label={lst:idx_macro}]
+#define IDX2(DIMX, DIMY, X, Y)           ((X)*(DIMY) + (Y))
+#define IDX3(DIMX, DIMY, DIMZ, X, Y, Z)  ((X)*(DIMY)*(DIMZ) + (Y)*(DIMZ) + (Z))
+\end{lstlisting}
 
 \subsection{Coalescing memory accesses}
 
