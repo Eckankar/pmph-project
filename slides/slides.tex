@@ -1,0 +1,288 @@
+\documentclass{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage[T1]{fontenc}
+
+\usepackage{amsmath,amssymb,amsfonts}
+
+\usepackage{graphicx}
+
+\usepackage{booktabs}
+\usepackage{textcomp}
+\usepackage{listingsutf8}
+\lstset{
+    keywordstyle=\bfseries\ttfamily\color[rgb]{0,0,1},
+    identifierstyle=\ttfamily,
+    commentstyle=\color[rgb]{0.133,0.545,0.133},
+    stringstyle=\ttfamily\color[rgb]{0.627,0.126,0.941},
+    showstringspaces=false,
+    basicstyle=\scriptsize\ttfamily,
+    numbersep=10pt,
+    tabsize=2,
+    breaklines=true,
+    prebreak = \raisebox{0ex}[0ex][0ex]{\ensuremath{\hookleftarrow}},
+    breakatwhitespace=false,
+    aboveskip={1.5\baselineskip},
+    columns=fixed,
+    extendedchars=true,
+    frame=single,
+    captionpos=b,
+    language=C++
+}
+
+\usetheme[unit=ics]{Frederiksberg}
+\setbeamersize{text margin left=1.5em}
+\graphicspath{{./images/}}
+
+\setbeamerfont{subauthor}{size=\small}
+
+\title{PMPH Project}
+\subtitle{}
+\author{Daniel Egeberg \and Sebastian Paaske Tørholm}
+\institute[Department of Computer Science]{Department of Computer Science}
+\begin{document}
+
+\frame[plain]{\titlepage}
+
+\section{Eliminating duplicate computations}
+\begin{frame}[fragile]{After time loop extraction}
+    \begin{itemize}
+        \item<1-> Time loop has been moved out, what do our variables look like? 
+    \end{itemize}
+
+    \begin{lstlisting}
+REAL myX[outer][numX];
+REAL myY[outer][numY];
+REAL myTimeline[outer][numT];
+REAL myResult[outer][numX][numY];
+REAL myVarX[outer][numX][numY];
+REAL myVarY[outer][numX][numY];
+REAL myDxx[outer][numX][4];
+REAL myDyy[outer][numY][4];
+    \end{lstlisting}
+
+    \begin{itemize}
+        \item<1-> Do we need the \texttt{outer} dimension on all of them? 
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{How to determine dependencies}
+    \begin{itemize}
+        \item Need to determine which variables are dependent on the outer dimension,
+              and which that are independent.
+        \item<2-> To accomplish this: Look at when each variable is read from or written to.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{initGrid}}
+\begin{lstlisting}
+void initGrid(...) {
+  for(unsigned i=0;i<numT;++i)
+      myTimeline[o][i] = t*i/(numT-1);
+  // ...
+  for(unsigned i=0;i<numX;++i)
+      myX[o][i] = i*dx - myXindex*dx + s0;
+  // ...
+  for(unsigned i=0;i<numY;++i)
+      myY[o][i] = i*dy - myYindex*dy + logAlpha;
+} 
+\end{lstlisting}
+\begin{itemize}
+    \item Writes to \texttt{myTimeline}, \texttt{myX}, \texttt{myY}.
+    \item Data written is independent of \texttt{outer} dimension.
+    \item \texttt{myTimeline}, \texttt{myX}, \texttt{myY} never written to outside of \texttt{initGrid}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{initOperator}}
+\begin{lstlisting}
+void initOperator(...) {
+  // ...
+  for(unsigned i=1;i<n-1;i++) {
+    dxl      = x[o][i]   - x[o][i-1];
+    dxu      = x[o][i+1] - x[o][i];
+    Dxx[o][i][0] =  2.0/dxl/(dxl+dxu);
+    Dxx[o][i][1] = -2.0*(1.0/dxl + 1.0/dxu)/(dxl+dxu);
+    Dxx[o][i][2] =  2.0/dxu/(dxl+dxu);
+    Dxx[o][i][3] =  0.0;
+  }
+  // ...
+}
+\end{lstlisting}
+\begin{itemize}
+    \item Reads from \texttt{myX}, writes to \texttt{myDxx}. (Ditto \texttt{y}.)
+    \item Data written is independent of \texttt{outer} dimension. (If \texttt{myX} is.)
+    \item \texttt{myDxx} never written to outside of \texttt{initGrid}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{setPayoff}}
+\begin{lstlisting}
+void setPayoff(...) {
+    for (unsigned i=0; i < numX; ++i) {
+        REAL payoff = max(myX[o][i]-strike, (REAL)0.0);
+        for (unsigned j=0; j < numY; ++j)
+            myResult[o][i][j] = payoff;
+    }
+}
+\end{lstlisting}
+\begin{itemize}
+    \item Reads from \texttt{myX}, writes to \texttt{myResult}.
+    \item Data written is dependent on \texttt{outer} dimension.
+        \begin{itemize}
+            \item \texttt{strike} is a function of \texttt{o}!
+        \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{updateParams}}
+\begin{lstlisting}
+void updateParams(...) {
+  for (unsigned i=0; i < numX; ++i)
+    for (unsigned j=0; j < numY; ++j) {
+      myVarX[o][i][j] = f(myX[o][i], myY[o][j], myTimeline[o][g]);
+      myVarY[o][i][j] = g(myX[o][i], myY[o][j], myTimeline[o][g]);
+    }
+}
+\end{lstlisting}
+\begin{itemize}
+    \item Reads from \texttt{myX}, \texttt{myY}, \texttt{myTimeline}, writes to \texttt{myVarX}, \texttt{myVarY}.
+    \item Data written is not dependent on \texttt{outer} dimension.\footnote{The variables used are independent of it, per our previous slides.}
+    \item \texttt{myVarX} and \texttt{myVarY} never written to outside of \texttt{initGrid}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{\texttt{rollback}}
+\begin{itemize}
+    \item Partitioned into four logical parts: Explicit X, explicit Y, implicit X, implicit Y.
+    \item We analyse each of these separately.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{rollback} - Explicit X}
+\begin{lstlisting}[basicstyle=\tiny\ttfamily]
+REAL dtInv = 1.0/(myTimeline[o][g+1]-myTimeline[o][g]);
+// ...
+for(i=0;i<numX;i++) {
+  for(j=0;j<numY;j++) {
+    u[j][i] = dtInv*myResult[o][i][j];
+    if(i > 0) {
+      u[j][i] += f(myVarX[o][i][j],myDxx[o][i][0],myResult[o][i-1][j]);
+    }
+    u[j][i] += g(myVarX[o][i][j],myDxx[o][i][1],myResult[o][i][j]);
+    if(i < numX-1) {
+      u[j][i] += h(myVarX[o][i][j],myDxx[o][i][2],myResult[o][i+1][j]);
+    }
+  }
+}
+\end{lstlisting}
+\begin{itemize}
+    \item Reads from a number of globs, but doesn't write to any!
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{rollback} - Explicit Y}
+\begin{lstlisting}[basicstyle=\tiny\ttfamily]
+for(j=0;j<numY;j++) {
+  for(i=0;i<numX;i++) {
+    v[i][j] = 0.0;
+    if(j > 0) {
+      v[i][j] += f(myVarY[o][i][j],myDyy[o][j][0],myResult[o][i][j-1]);
+    }
+    v[i][j] += g(myVarY[o][i][j],myDyy[o][j][1],myResult[o][i][j]);
+    if(j < numY-1) {
+      v[i][j] += h(myVarY[o][i][j],myDyy[o][j][2],myResult[o][i][j+1]);
+    }
+    u[j][i] += v[i][j];
+  }
+}
+\end{lstlisting}
+\begin{itemize}
+    \item Reads from a number of globs, but doesn't write to any!
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{rollback} - implicit X}
+\begin{lstlisting}[basicstyle=\tiny\ttfamily]
+REAL dtInv = 1.0/(myTimeline[o][g+1]-myTimeline[o][g]);
+// ...
+for(j=0;j<numY;j++) {
+  for(i=0;i<numX;i++) {
+    a[i] =         - 0.5*(0.5*myVarX[o][i][j]*myDxx[o][i][0]);
+    b[i] = dtInv - 0.5*(0.5*myVarX[o][i][j]*myDxx[o][i][1]);
+    c[i] =         - 0.5*(0.5*myVarX[o][i][j]*myDxx[o][i][2]);
+  }
+  tridag(a,b,c,u[j],numX,u[j],yy);
+}
+\end{lstlisting}
+\begin{itemize}
+    \item Reads from a number of globs, but doesn't write to any!
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{rollback} - implicit Y}
+\begin{lstlisting}[basicstyle=\tiny\ttfamily]
+REAL dtInv = 1.0/(myTimeline[o][g+1]-myTimeline[o][g]);
+// ...
+for(i=0;i<numX;i++) {
+  for(j=0;j<numY;j++) {
+    a[j] =         - 0.5*(0.5*myVarY[o][i][j]*myDyy[o][j][0]);
+    b[j] = dtInv - 0.5*(0.5*myVarY[o][i][j]*myDyy[o][j][1]);
+    c[j] =         - 0.5*(0.5*myVarY[o][i][j]*myDyy[o][j][2]);
+    y[j] = dtInv*u[j][i] - 0.5*v[i][j];
+  }
+  tridag(a,b,c,y,numY,globs.myResult[i],yy);
+}
+\end{lstlisting}
+\begin{itemize}
+    \item Reads from a number of globs, writes to myResult.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Overview of dependencies}
+\begin{itemize}
+    \item We can create a table of these dependencies:
+\end{itemize}
+{
+\tiny
+    \begin{tabular}{lcccccccc}
+        \toprule
+        \textbf{Function}             & \texttt{myX} & \texttt{myY} & \texttt{myTimeline} & \texttt{myResult} & \texttt{myVarX} & \texttt{myVarY} & \texttt{myDxx} & \texttt{myDyy} \\
+        \midrule
+        \texttt{initGrid}             & W            & W            & W                   &                   &                 &                 &                &                \\
+        \texttt{initOperator}, x      & R            &              &                     &                   &                 &                 & W              &                \\
+        \texttt{initOperator}, y      &              & R            &                     &                   &                 &                 &                & W              \\
+        \texttt{setPayoff}            & R            &              &                     & W                 &                 &                 &                &                \\
+        \texttt{updateParams}         & R            & R            & R                   &                   & W               & W               &                &                \\
+        \texttt{rollback}, explicit x &              &              &                     & R                 & R               &                 & R              &                \\
+        \texttt{rollback}, explicit y &              &              &                     & R                 &                 & R               &                & R              \\
+        \texttt{rollback}, implicit x &              &              &                     &                   & R               &                 & R              &                \\
+        \texttt{rollback}, implicit y &              &              &                     & W                 &                 & R               &                & R              \\
+        \bottomrule
+    \end{tabular}
+}
+\begin{itemize}
+    \item Only \texttt{myResult} actually needs to be computed separately for
+          each outer iteration.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{After reduction of duplicate computations}
+    \begin{itemize}
+        \item<1-> After this reduction, our variables look as follows:
+    \end{itemize}
+
+    \begin{lstlisting}
+REAL myX[numX];
+REAL myY[numY];
+REAL myTimeline[numT];
+REAL myResult[outer][numX][numY];
+REAL myVarX[numX][numY];
+REAL myVarY[numX][numY];
+REAL myDxx[numX][4];
+REAL myDyy[numY][4];
+    \end{lstlisting}
+\end{frame}
+\end{document}
+
