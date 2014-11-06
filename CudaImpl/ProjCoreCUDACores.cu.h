@@ -400,8 +400,8 @@ void rollback_implicit_y_part2_kernel(
         REAL *y,
         REAL *yy
 ) {
-    unsigned int tid_outer = blockIdx.x*blockDim.x + threadIdx.x;
-    unsigned int tid_x     = blockIdx.y*blockDim.y + threadIdx.y;
+    unsigned int tid_x     = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int tid_outer = blockIdx.y*blockDim.y + threadIdx.y;
 
     if (tid_outer >= outer || tid_x >= numX)
         return;
