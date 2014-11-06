@@ -154,7 +154,7 @@ void initOperator_kernel(REAL *x, REAL *Dxx, const unsigned numX) {
 }
 
 __global__
-void setPayoff_kernel(REAL *myX, REAL *myY, REAL *myResult, const unsigned numX, const unsigned numY, const unsigned outer)
+void setPayoff_kernel(REAL *myX, REAL *myY, REAL *myResult, const unsigned numX, const unsigned numY,  const unsigned numZ, const unsigned outer)
 {
     unsigned int tid_y = blockIdx.x*blockDim.x + threadIdx.x;
     unsigned int tid_x = blockIdx.y*blockDim.y + threadIdx.y;
@@ -168,7 +168,7 @@ void setPayoff_kernel(REAL *myX, REAL *myY, REAL *myResult, const unsigned numX,
         REAL strike = 0.001*j;
         REAL payoff = max(x-strike, (REAL)0.0);
 
-        myResult[IDX3(outer, numX, numY, j, tid_x, tid_y)] = payoff;
+        myResult[IDX3(outer, numZ, numZ, j, tid_x, tid_y)] = payoff;
     }
 }
 
@@ -179,6 +179,7 @@ void res_kernel(
         const unsigned outer,
         const unsigned numX,
         const unsigned numY,
+        const unsigned numZ,
         unsigned int myXindex,
         unsigned int myYindex
 ) {
@@ -187,7 +188,7 @@ void res_kernel(
     if (tid_outer >= outer)
         return;
 
-    res[tid_outer] = myResult[IDX3(outer, numX, numY, tid_outer, myXindex, myYindex)];
+    res[tid_outer] = myResult[IDX3(outer, numZ, numZ, tid_outer, myXindex, myYindex)];
 }
 
 __global__
@@ -195,6 +196,7 @@ void rollback_explicit_x_kernel(
         const unsigned outer,
         const unsigned numX,
         const unsigned numY,
+        const unsigned numZ,
         const unsigned numT,
         const unsigned g,
         REAL *u,
@@ -215,17 +217,17 @@ void rollback_explicit_x_kernel(
     for(int j=0; j < outer; j++) {
         REAL *myu = &u[IDX3(outer,numX,numY, j,tid_x,tid_y)];
 
-        *myu = dtInv*myResult[IDX3(outer,numX,numY, j,tid_x,tid_y)];
+        *myu = dtInv*myResult[IDX3(outer,numZ,numZ, j,tid_x,tid_y)];
 
         if(tid_x > 0) {
             *myu += 0.5 * ( 0.5 * mymyVarX * myDxx[IDX2(4,numX, 0,tid_x)] )
-                        * myResult[IDX3(outer,numX,numY, j,tid_x-1,tid_y)];
+                        * myResult[IDX3(outer,numZ,numZ, j,tid_x-1,tid_y)];
         }
         *myu  +=  0.5 * ( 0.5 * mymyVarX * myDxx[IDX2(4,numX, 1,tid_x)] )
-                        * myResult[IDX3(outer,numX,numY, j,tid_x,tid_y)];
+                        * myResult[IDX3(outer,numZ,numZ, j,tid_x,tid_y)];
         if(tid_x < numX-1) {
             *myu += 0.5 * ( 0.5 * mymyVarX * myDxx[IDX2(4,numX, 2,tid_x)] )
-                        * myResult[IDX3(outer,numX,numY, j,tid_x+1,tid_y)];
+                        * myResult[IDX3(outer,numZ,numZ, j,tid_x+1,tid_y)];
         }
     }
 }
@@ -235,6 +237,7 @@ void rollback_explicit_y_kernel(
         const unsigned outer,
         const unsigned numX,
         const unsigned numY,
+        const unsigned numZ,
         REAL *u,
         REAL *v,
         REAL *myTimeline,
@@ -257,13 +260,13 @@ void rollback_explicit_y_kernel(
 
         if(tid_y > 0) {
             *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 0,tid_y)] )
-                        * myResult[IDX3(outer,numX,numY, i,tid_x,tid_y-1)];
+                        * myResult[IDX3(outer,numZ,numZ, i,tid_x,tid_y-1)];
         }
         *myv  +=  0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 1,tid_y)] )
-                        * myResult[IDX3(outer,numX,numY, i,tid_x,tid_y)];
+                        * myResult[IDX3(outer,numZ,numZ, i,tid_x,tid_y)];
         if(tid_y < numY-1) {
             *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 2,tid_y)] )
-                        * myResult[IDX3(outer,numX,numY, i,tid_x,tid_y+1)];
+                        * myResult[IDX3(outer,numZ,numZ, i,tid_x,tid_y+1)];
         }
 
         u[IDX3(outer,numX,numY, i,tid_x,tid_y)] += *myv;
@@ -418,7 +421,7 @@ void rollback_implicit_y_part2_kernel(
     REAL *myYY = &yy[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
 
     // here yy should have size [numY]
-    tridag(myA,myB,myC,myY,numY,&myResult[IDX3(outer,numX,numY, tid_outer, tid_x, 0)],myYY);
+    tridag(myA,myB,myC,myY,numY,&myResult[IDX3(outer,numZ,numZ, tid_outer, tid_x, 0)],myYY);
 }
 
 #endif
