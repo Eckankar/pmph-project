@@ -298,9 +298,9 @@ void rollback_implicit_x_kernel(
     REAL c_new =       - 0.5 * (0.5 * mymyVarX * myDxx2);
 
     for(int i=0; i < outer; i++) {  // here a, b,c should have size [numX]
-        a[IDX3(outer,numZ,numZ, i,tid_y,tid_x)] = a_new;
-        b[IDX3(outer,numZ,numZ, i,tid_y,tid_x)] = b_new;
-        c[IDX3(outer,numZ,numZ, i,tid_y,tid_x)] = c_new;
+        a[IDX3(outer,numZ,numZ, i,tid_x,tid_y)] = a_new;
+        b[IDX3(outer,numZ,numZ, i,tid_x,tid_y)] = b_new;
+        c[IDX3(outer,numZ,numZ, i,tid_x,tid_y)] = c_new;
     }
 }
 
