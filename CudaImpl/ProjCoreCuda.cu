@@ -77,58 +77,6 @@ void setPayoff(const REAL strike, PrivGlobs& globs )
     }
 }
 
-void orig_explicit_x(
-    const unsigned g, PrivGlobs& globs,
-    vector<vector<REAL> > u
-) {
-    unsigned numX = globs.myX.size(),
-             numY = globs.myY.size();
-    REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
-    for(i=0;i<numX;i++) {
-        for(j=0;j<numY;j++) {
-            u[j][i] = dtInv*globs.myResult[i][j];
-
-            if(i > 0) {
-              u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][0] )
-                            * globs.myResult[i-1][j];
-            }
-            u[j][i]  +=  0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][1] )
-                            * globs.myResult[i][j];
-            if(i < numX-1) {
-              u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][2] )
-                            * globs.myResult[i+1][j];
-            }
-        }
-    }
-}
-
-void orig_explicit_y(
-    const unsigned g, PrivGlobs& globs,
-    vector<vector<REAL> > u,
-    vector<vector<REAL> > v
-) {
-    unsigned numX = globs.myX.size(),
-             numY = globs.myY.size();
-    for(j=0;j<numY;j++)
-    {
-        for(i=0;i<numX;i++) {
-            v[i][j] = 0.0;
-
-            if(j > 0) {
-              v[i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][0] )
-                         *  globs.myResult[i][j-1];
-            }
-            v[i][j]  +=   ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][1] )
-                         *  globs.myResult[i][j];
-            if(j < numY-1) {
-              v[i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][2] )
-                         *  globs.myResult[i][j+1];
-            }
-            u[j][i] += v[i][j];
-        }
-    }
-}
-
 /*
 inline void new_amazing_tridag(
     const vector<REAL>&   a,   // size [n]
