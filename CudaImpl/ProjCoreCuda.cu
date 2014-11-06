@@ -79,7 +79,7 @@ void setPayoff(const REAL strike, PrivGlobs& globs )
 
 void orig_explicit_x(
     const unsigned g, PrivGlobs& globs,
-    vector<vector<REAL> > u
+    vector<vector<REAL> >& u
 ) {
     unsigned numX = globs.myX.size(),
              numY = globs.myY.size();
