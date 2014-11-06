@@ -322,7 +322,7 @@ void   run_cuda(
 
     REAL *u_d, *v_d, *a_d, *b_d, *c_d, *y_d, *yy_d;
     CudaSafeCall( cudaMalloc((void **) &u_d,     outer * numZ * numZ * sizeof(REAL)) );
-    CudaSafeCall( cudaMalloc((void **) &v_d,     outer * numX * numY * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &v_d,     outer * numZ * numZ * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &a_d,     outer * numZ * numZ * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &b_d,     outer * numZ * numZ * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &c_d,     outer * numZ * numZ * sizeof(REAL)) );

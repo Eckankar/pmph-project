@@ -253,7 +253,7 @@ void rollback_explicit_y_kernel(
 
 
     for(int i=0; i < outer; i++) {
-        REAL *myv = &v[IDX3(outer,numX,numY, i,tid_x,tid_y)];
+        REAL *myv = &v[IDX3(outer,numZ,numZ, i,tid_x,tid_y)];
         REAL mymyVarY = myVarY[IDX2(numX,numY, tid_x,tid_y)];
 
         *myv = 0.0;
@@ -384,7 +384,7 @@ void rollback_implicit_y_kernel(
 
         y[IDX3(outer,numZ,numZ, j,tid_x,tid_y)]
             = dtInv * u[IDX3(outer,numZ,numZ, j,tid_x,tid_y)]
-            - 0.5   * v[IDX3(outer,numX,numY, j,tid_x,tid_y)];
+            - 0.5   * v[IDX3(outer,numZ,numZ, j,tid_x,tid_y)];
     }
 }
 
