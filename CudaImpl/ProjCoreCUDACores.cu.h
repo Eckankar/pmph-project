@@ -36,34 +36,26 @@ void tridag(
     const REAL   *r,   // size [n]
     const int             n,
           REAL   *u,   // size [n]
-          REAL   *uu   // size [n] temporary
+          REAL   *uu,  // size [n] temporary
+    const int             stride
 ) {
-    int    i, offset;
+    int    i;
     REAL   beta;
 
-    u[0]  = r[0];
-    uu[0] = b[0];
+    u[0*stride]  = r[0*stride];
+    uu[0*stride] = b[0*stride];
 
     for(i=1; i<n; i++) {
-        beta  = a[i] / uu[i-1];
+        beta  = a[i*stride] / uu[(i-1)*stride];
 
-        uu[i] = b[i] - beta*c[i-1];
-        u[i]  = r[i] - beta*u[i-1];
+        uu[i*stride] = b[i*stride] - beta*c[(i-1)*stride];
+        u[i*stride]  = r[i*stride] - beta*u[(i-1)*stride];
     }
 
-#if 1
-    // X) this is a backward recurrence
-    u[n-1] = u[n-1] / uu[n-1];
+    u[(n-1)*stride] = u[(n-1)*stride] / uu[(n-1)*stride];
     for(i=n-2; i>=0; i--) {
-        u[i] = (u[i] - c[i]*u[i+1]) / uu[i];
+        u[i*stride] = (u[i*stride] - c[i*stride]*u[(i+1)*stride]) / uu[i*stride];
     }
-#else
-    // Hint: X) can be written smth like (once you make a non-constant)
-    for(i=0; i<n; i++) a[i] =  u[n-1-i];
-    a[0] = a[0] / uu[n-1];
-    for(i=1; i<n; i++) a[i] = (a[i] - c[n-1-i]*a[i-1]) / uu[n-1-i];
-    for(i=0; i<n; i++) u[i] = a[n-1-i];
-#endif
 }
 
 __global__
@@ -337,7 +329,7 @@ void rollback_implicit_x_part2_kernel(
     REAL *myU  =  &u[IDX3(outer,numZ,numZ, tid_outer,tid_y,0)];
 
     // here yy should have size [numX]
-    tridag(myA,myB,myC,myU,numX,myU,myYY);
+    tridag(myA,myB,myC,myU,numX,myU,myYY,1);
 }
 
 __global__
@@ -421,7 +413,7 @@ void rollback_implicit_y_part2_kernel(
     REAL *myYY = &yy[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
 
     // here yy should have size [numY]
-    tridag(myA,myB,myC,myY,numY,&myResult[IDX3(outer,numZ,numZ, tid_outer, tid_x, 0)],myYY);
+    tridag(myA,myB,myC,myY,numY,&myResult[IDX3(outer,numZ,numZ, tid_outer, tid_x, 0)],myYY,1);
 }
 
 #endif
