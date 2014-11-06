@@ -84,8 +84,8 @@ void orig_explicit_x(
     unsigned numX = globs.myX.size(),
              numY = globs.myY.size();
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
-    for(i=0;i<numX;i++) {
-        for(j=0;j<numY;j++) {
+    for(int i=0;i<numX;i++) {
+        for(int j=0;j<numY;j++) {
             u[j][i] = dtInv*globs.myResult[i][j];
 
             if(i > 0) {
@@ -109,9 +109,9 @@ void orig_explicit_y(
 ) {
     unsigned numX = globs.myX.size(),
              numY = globs.myY.size();
-    for(j=0;j<numY;j++)
+    for(int j=0;j<numY;j++)
     {
-        for(i=0;i<numX;i++) {
+        for(int i=0;i<numX;i++) {
             v[i][j] = 0.0;
 
             if(j > 0) {
@@ -430,8 +430,56 @@ void   run_cuda(
         }
 #endif
 
-        rollback_explicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, numT, j, u_t_d,
-                myTimeline_d, myVarX_d, myDxx_t_d, myResult_d); // 2D
+//        rollback_explicit_x_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, numT, j, u_t_d,
+//                myTimeline_d, myVarX_d, myDxx_t_d, myResult_d); // 2D
+
+#ifdef DO_DEBUG
+// if (j == numT-2) {
+
+    PrivGlobs globs(numX,numY,numT);
+    REAL *myTimeline, *myResult, *myVarX, *myDxx_t, *u_t;
+    CudaSafeCall( cudaHostAlloc((void **) &myTimeline, numT * sizeof(REAL), cudaHostAllocDefault ) );
+    CudaSafeCall( cudaHostAlloc((void **) &myDxx_t,      numX * 4 * sizeof(REAL), cudaHostAllocDefault ) );
+    CudaSafeCall( cudaHostAlloc((void **) &myResult,   outer * numZ * numZ * sizeof(REAL), cudaHostAllocDefault ) );
+    CudaSafeCall( cudaHostAlloc((void **) &myVarX,     numX * numY * sizeof(REAL), cudaHostAllocDefault ) );
+    CudaSafeCall( cudaHostAlloc((void **) &u_t, outer * numX * numY * sizeof(REAL), cudaHostAllocDefault ) );
+
+    cudaMemcpy(myTimeline, myTimeline_d, numT * sizeof(REAL), cudaMemcpyDeviceToHost);
+    cudaMemcpy(myDxx_t, myDxx_t_d, numX * 4 * sizeof(REAL), cudaMemcpyDeviceToHost);
+    cudaMemcpy(myResult, myResult_d, outer * numZ * numZ * sizeof(REAL), cudaMemcpyDeviceToHost);
+    cudaMemcpy(myVarX, myVarX_d, numX * numY * sizeof(REAL), cudaMemcpyDeviceToHost);
+
+    for (int x = 0; x < numX; x++) {
+        globs.myX[x] = 0.0;
+    }
+    for (int x = 0; x < numY; x++) {
+        globs.myY[x] = 0.0;
+    }
+    for (int x = 0; x < numT; x++) {
+        globs.myTimeline[x] = myTimeline[x];
+    }
+    for (int x = 0; x < numX; x++) {
+        for (int y = 0; y < 4; y++) {
+            globs.myDxx[x][y] = myDxx_t[IDX2(4,numX, y,x)];
+        }
+    }
+    for (int o = 0; o < outer; o++) {
+        for (int x = 0; x < numX; x++) {
+            for (int y = 0; y < numY; y++) {
+                globs.myResult[x][y] = myResult[IDX3(outer,numZ,numZ, o,x,y)];
+            }
+        }
+        vector<vector<REAL> > u(numZ, vector<REAL>(numZ));   // [numY][numX]
+        orig_explicit_x(j, globs, u);
+        for (int x = 0; x < numX; x++) {
+            for (int y = 0; y < numY; y++) {
+                u_t[IDX3(outer,numZ,numZ, o,x,y)] = u[y][x];
+            }
+        }
+
+    }
+    cudaMemcpy(u_t_d, u_t, outer*numZ*numZ*sizeof(REAL), cudaMemcpyHostToDevice);
+#endif
 
         rollback_explicit_y_kernel<<<GRID(numY, numX), block_size2>>>(outer, numX, numY, numZ, u_t_d, v_d,
                 myTimeline_d, myVarY_d, myDyy_t_d, myResult_d); // 2D
