@@ -370,11 +370,11 @@ void rollback_implicit_y_kernel(
     REAL c_new =       - 0.5 * (0.5 * mymyVarY * myDyy2);
 
     for(int j=0; j < outer; j++) {  // here a, b,c should have size [numX]
-        a[IDX3(outer,numZ,numZ, j,tid_x,tid_y)] = a_new;
-        b[IDX3(outer,numZ,numZ, j,tid_x,tid_y)] = b_new;
-        c[IDX3(outer,numZ,numZ, j,tid_x,tid_y)] = c_new;
+        a[IDX3(outer,numZ,numZ, j,tid_y,tid_x)] = a_new;
+        b[IDX3(outer,numZ,numZ, j,tid_y,tid_x)] = b_new;
+        c[IDX3(outer,numZ,numZ, j,tid_y,tid_x)] = c_new;
 
-        y[IDX3(outer,numZ,numZ, j,tid_x,tid_y)]
+        y[IDX3(outer,numZ,numZ, j,tid_y,tid_x)]
             = dtInv * u[IDX3(outer,numZ,numZ, j,tid_x,tid_y)]
             - 0.5   * v[IDX3(outer,numZ,numZ, j,tid_x,tid_y)];
     }
@@ -406,14 +406,14 @@ void rollback_implicit_y_part2_kernel(
     if (tid_outer >= outer || tid_x >= numX)
         return;
 
-    REAL *myA  =  &a[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
-    REAL *myB  =  &b[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
-    REAL *myC  =  &c[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
-    REAL *myY  =  &y[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
-    REAL *myYY = &yy[IDX3(outer,numZ,numZ, tid_outer,tid_x,0)];
+    REAL *myA  =  &a[IDX3(outer,numZ,numZ, tid_outer,0,tid_x)];
+    REAL *myB  =  &b[IDX3(outer,numZ,numZ, tid_outer,0,tid_x)];
+    REAL *myC  =  &c[IDX3(outer,numZ,numZ, tid_outer,0,tid_x)];
+    REAL *myY  =  &y[IDX3(outer,numZ,numZ, tid_outer,0,tid_x)];
+    REAL *myYY = &yy[IDX3(outer,numZ,numZ, tid_outer,0,tid_x)];
 
     // here yy should have size [numY]
-    tridag(myA,myB,myC,myY,numY,&myResult[IDX3(outer,numZ,numZ, tid_outer, tid_x, 0)],myYY,1);
+    tridag(myA,myB,myC,myY,numY,&myResult[IDX3(outer,numZ,numZ, tid_outer,0,tid_x)],myYY,numZ);
 }
 
 #endif

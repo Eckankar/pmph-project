@@ -207,9 +207,10 @@ void   run_cuda(
     CudaSafeCall( cudaMalloc((void **) &res_d,        outer * sizeof(REAL)) );
 
     // Allocate transposed resources
-    REAL *myDxx_t_d, *myDyy_t_d;
+    REAL *myDxx_t_d, *myDyy_t_d, *myResult_t_d;
     CudaSafeCall( cudaMalloc((void **) &myDxx_t_d,      numX * 4 * sizeof(REAL)) );
     CudaSafeCall( cudaMalloc((void **) &myDyy_t_d,      numY * 4 * sizeof(REAL)) );
+    CudaSafeCall( cudaMalloc((void **) &myResult_t_d,   outer * numZ * numZ * sizeof(REAL)) );
     const dim3 block_size2 = dim3(32, 32);
     const dim3 block_size3 = dim3(8, 8, 8);
     const int block_size   = block_size2.x * block_size2.y * block_size2.z;
@@ -399,8 +400,11 @@ void   run_cuda(
                 myTimeline_d, myVarY_d, myDyy_t_d, myResult_d, u_t_d, v_d, a_d, b_d, c_d, y_d); // 2D
 
         rollback_implicit_y_part2_kernel<<<GRID(outer, numX), block_size2>>>(outer, numX, numY, numZ, numT, j, myTimeline_d,
-                                                 myVarY_d, myDyy_d, myResult_d, u_d, v_d, a_d,
+                                                 myVarY_d, myDyy_d, myResult_t_d, u_d, v_d, a_d,
                                                  b_d, c_d, y_d, yy_d); // 2D
+
+        transpose3d(myResult_t_d, myResult_d, outer, numZ, numZ);
+
     }
 
     res_kernel<<<ceil((REAL)outer/block_size), block_size>>>(res_d, myResult_d, outer, numX, numY, numZ, myXindex, myYindex);
