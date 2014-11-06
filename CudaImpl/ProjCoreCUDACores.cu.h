@@ -89,6 +89,14 @@ void updateParams_large_kernel(
     myVarY[IDX2(numX,numY, tid_x,tid_y)]
         = exp(2.0 * (alpha * log(x) + y - 0.5*nu*nu*timeline));
 
+#ifdef DO_DEBUG2
+    if (tid_x == 80 && tid_y == 255 && g == numT-2) {
+        printf("cuda: %.15f %.15f %.15f\n", x, y, timeline);
+        printf("cuda: %.15f %.15f\n", (double)log(x), myVarY[IDX2(numX,numY, tid_x,tid_y)]);
+
+    }
+#endif
+
 }
 
 __global__
@@ -245,23 +253,23 @@ void rollback_explicit_y_kernel(
 
 
     for(int i=0; i < outer; i++) {
-        REAL *myv = &v[IDX3(outer,numZ,numZ, i,tid_x,tid_y)];
+        REAL myv = 0.0;
         REAL mymyVarY = myVarY[IDX2(numX,numY, tid_x,tid_y)];
 
-        *myv = 0.0;
-
         if(tid_y > 0) {
-            *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 0,tid_y)] )
-                        * myResult[IDX3(outer,numZ,numZ, i,tid_x,tid_y-1)];
+            myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 0,tid_y)] )
+                       * myResult[IDX3(outer,numZ,numZ, i,tid_x,tid_y-1)];
         }
-        *myv  +=  0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 1,tid_y)] )
-                        * myResult[IDX3(outer,numZ,numZ, i,tid_x,tid_y)];
+        myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 1,tid_y)] )
+                   * myResult[IDX3(outer,numZ,numZ, i,tid_x,tid_y)];
         if(tid_y < numY-1) {
-            *myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 2,tid_y)] )
-                        * myResult[IDX3(outer,numZ,numZ, i,tid_x,tid_y+1)];
+            myv += 0.5 * ( 0.5 * mymyVarY * myDyy[IDX2(4,numY, 2,tid_y)] )
+                       * myResult[IDX3(outer,numZ,numZ, i,tid_x,tid_y+1)];
         }
 
-        u[IDX3(outer,numZ,numZ, i,tid_x,tid_y)] += *myv;
+        u[IDX3(outer,numZ,numZ, i,tid_x,tid_y)] += myv;
+
+        v[IDX3(outer,numZ,numZ, i,tid_x,tid_y)] = myv;
     }
 }
 

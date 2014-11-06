@@ -59,9 +59,9 @@ void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REA
                                           + globs.myY[j]
                                           - 0.5*nu*nu*globs.myTimeline[g] )
                                     ); // nu*nu
-            if (i == 52 && j == 253) {
-                printf("non-cuda: %.10f %.10f %.10f\n", globs.myX[i], globs.myY[j], globs.myTimeline[g]);
-                printf("non-cuda: %.10f %.10f\n", log(globs.myX[i]), globs.myVarY[i][j]);
+            if (i == 80 && j == 255) {
+                printf("non-cuda: %.15f %.15f %.15f\n", globs.myX[i], globs.myY[j], globs.myTimeline[g]);
+                printf("non-cuda: %.15f %.15f\n", log(globs.myX[i]), globs.myVarY[i][j]);
 
             }
         }
@@ -358,17 +358,17 @@ void   run_cuda(
 
             updateParams(j, alpha, beta, nu, globs);
 
-            for (int x = 52; x < 53; ++x) {
-            for (int y = 253; y < 254; ++y) {
+            for (int x = 0; x < numX; ++x) {
+            for (int y = 0; y < numY; ++y) {
                 REAL x1 = globs.myVarX[x][y];
                 REAL x2 = myVarX[IDX2(numX,numY, x,y)];
-                if (abs(x1-x2) >= 1e-7) {
+                if (abs(x1-x2) >= 1e-6) {
                     printf("myVarX(%d,%d), %.14f, %.14f, %.14f\n", x, y, abs(x1-x2), x1, x2);
                 }
 
                 x1 = globs.myVarY[x][y];
                 x2 = myVarY[IDX2(numX,numY, x,y)];
-                if (abs(x1-x2) >= 1e-7) {
+                if (abs(x1-x2) >= 1e-6) {
                     printf("myVarY(%d,%d), %.14f, %.14f, %.14f\n", x, y, abs(x1-x2), x1, x2);
                 }
             }
