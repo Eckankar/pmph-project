@@ -346,7 +346,7 @@ void   run_cuda(
         updateParams_large_kernel<<<GRID(numY, numX), block_size2>>>(j, alpha, beta, nu, numX, numY,
                                                 numT, myX_d, myY_d, myVarX_d, myVarY_d, myTimeline_d); // 2D
 
-#if DO_DEBUG
+#if DO_DEBUG2
         if (j == numT-2) {
             REAL *myVarX, *myVarY;
             myVarX = (REAL*) malloc(numX * numY * sizeof(REAL));
